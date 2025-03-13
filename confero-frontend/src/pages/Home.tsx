@@ -1,11 +1,12 @@
 
 import React from "react";
 import Header from "../components/Header";
-
+import Footer from "../components/Footer";
 
 const Home: React.FC = () => {
   return (
-    
+    <>
+    <Header/>
     <div className="relative w-full min-h-screen overflow-y-auto">
     {/* Background Image - Fixed */}
     <div className="fixed top-0 left-0 w-full h-full bg-cover bg-center z-[-1]" 
@@ -50,6 +51,8 @@ const Home: React.FC = () => {
       <div className="h-[50vh]"></div>
     </div>
   </div>
+  <Footer/>
+  </>
   );
 };
 
