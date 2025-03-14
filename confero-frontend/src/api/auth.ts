@@ -37,7 +37,7 @@ export const loginUser = async (email: string, password: string) => {
 export const registerUser = async (data: {
   email: string;
   password: string;
-  display_name: string;
+  username: string;
   age?: number;
   phone_number?: string;
 }) => {

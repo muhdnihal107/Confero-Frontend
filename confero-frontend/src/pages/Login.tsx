@@ -4,10 +4,11 @@ import { loginUser } from "../api/auth";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useGoogleLogin } from "@react-oauth/google";
 const Login: React.FC = () => {
    const [email, setEmail] = useState("");
    const [password, setPassword] = useState("");
-   const { isLoading, error } = useAuthStore(); // Ensure your Zustand store returns these correctly
+   const { isLoading, error } = useAuthStore();
 
    const navigate = useNavigate();
 
@@ -20,6 +21,32 @@ const Login: React.FC = () => {
       onError: (error: Error) => {
          console.error("Login failed", error.message);
       },
+   });
+
+
+   const googleLoginMutation = useMutation({
+      mutationFn: (code: string) =>
+         fetch('http://localhost:8000/api/auth/google/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+         }).then((res) => res.json()),
+      onSuccess: (data) => {
+         console.log("Google Login successful:", data);
+         navigate("/");
+      },
+      onError: (error: Error) => {
+         console.error("Google Login failed:", error.message);
+      },
+   });
+
+   const googleLogin = useGoogleLogin({
+      flow: 'auth-code',
+      onSuccess: (codeResponse) => {
+         console.log('Google Code:', codeResponse.code);
+         googleLoginMutation.mutate(codeResponse.code);
+      },
+      onError: (error) => console.error('Google Login Failed:', error),
    });
 
    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -64,8 +91,18 @@ const Login: React.FC = () => {
                {error && <p style={{ color: "red" }}>Error: {error.toString()}</p>}
                {loginMutation.isSuccess && <p>Logged in successfully!</p>}
             </form>
-            <Link to={'/register'}>    
-                 <p className="text-center text-blue-600 hover:underline mt-4">Don't have an Account? Register</p>
+            <button
+               className="w-full bg-[#4285F4] text-white p-3 rounded-md hover:bg-[#357ABD] mt-4"
+               onClick={() => googleLogin()}
+               disabled={googleLoginMutation.isPending}
+            >
+               <p>Login with Google</p>
+            </button>
+            {googleLoginMutation.isError && (
+               <p style={{ color: "red" }}>Google Error: {googleLoginMutation.error?.message}</p>
+            )}
+            <Link to={'/register'}>
+               <p className="text-center text-blue-600 hover:underline mt-4">Don't have an Account? Register</p>
             </Link>
          </div>
       </div>

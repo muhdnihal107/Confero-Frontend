@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 // Define form data type
 interface FormData {
-  display_name: string;
+  username: string;
   email: string;
   age: string;
   phone_number: string;
@@ -16,7 +16,7 @@ interface FormData {
 
 const Register: React.FC = () => {
   const [form, setForm] = useState<FormData>({
-    display_name: "",
+    username: "",
     email: "",
     age: "",
     phone_number: "",
@@ -26,16 +26,16 @@ const Register: React.FC = () => {
 
   const { isLoading, error } = useAuthStore(); // Ensure Zustand store correctly provides these values
 
-  const registerMutation = useMutation({
-    mutationFn: (formData: FormData) => registerUser(formData),
-    onSuccess: (data) => {
-      console.log("Register successful:", data);
-    },
-    onError: (error: Error) => {
-      console.log("Register failed:", form);
-      console.error("Register failed", error.message);
-    },
-  });
+ const registerMutation = useMutation<FormData, Error, FormData>({
+  mutationFn: (formData) => registerUser(formData),
+  onSuccess: (data) => {
+    console.log("Register successful:", data);
+  },
+  onError: (error) => {
+    console.error("Register failed:", error.message);
+  },
+});
+
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({
@@ -64,8 +64,8 @@ const Register: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <input
               type="text"
-              name="display_name"
-              value={form.display_name}
+              name="username"
+              value={form.username}
               onChange={handleChange}
               placeholder="Full Name"
               className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
