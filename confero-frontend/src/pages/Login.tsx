@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
 const Login: React.FC = () => {
    const [email, setEmail] = useState("");
    const [password, setPassword] = useState("");
@@ -26,28 +27,25 @@ const Login: React.FC = () => {
 
    const googleLoginMutation = useMutation({
       mutationFn: (code: string) =>
-         fetch('http://localhost:8000/api/auth/google/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-         }).then((res) => res.json()),
+        axios.post('http://localhost:8000/api/auth/google/', { code }),  // Simplified with Axios
       onSuccess: (data) => {
-         console.log("Google Login successful:", data);
-         navigate("/");
+        console.log("Google Login successful:", data.data);  // Access response data
+        navigate("/");
       },
-      onError: (error: Error) => {
-         console.error("Google Login failed:", error.message);
+      onError: (error: any) => {
+        console.error("Google Login failed:", error.response?.data || error.message);
       },
-   });
+    });
 
-   const googleLogin = useGoogleLogin({
-      flow: 'auth-code',
-      onSuccess: (codeResponse) => {
-         console.log('Google Code:', codeResponse.code);
-         googleLoginMutation.mutate(codeResponse.code);
-      },
-      onError: (error) => console.error('Google Login Failed:', error),
-   });
+    const googleLogin = useGoogleLogin({
+  flow: 'auth-code',
+  scope: 'email profile openid',  // Match settings.py
+  onSuccess: (codeResponse) => {
+    console.log('Google Code:', codeResponse.code);
+    googleLoginMutation.mutate(codeResponse.code);
+  },
+  onError: (error) => console.error('Google Login Failed:', error),
+});
 
    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -91,6 +89,13 @@ const Login: React.FC = () => {
                {error && <p style={{ color: "red" }}>Error: {error.toString()}</p>}
                {loginMutation.isSuccess && <p>Logged in successfully!</p>}
             </form>
+
+            <p>or</p>
+            
+            <Link to={'/register'}>
+               <p className="text-center text-blue-600 hover:underline mt-4">Don't have an Account? Register</p>
+            </Link>
+
             <button
                className="w-full bg-[#4285F4] text-white p-3 rounded-md hover:bg-[#357ABD] mt-4"
                onClick={() => googleLogin()}
@@ -101,9 +106,6 @@ const Login: React.FC = () => {
             {googleLoginMutation.isError && (
                <p style={{ color: "red" }}>Google Error: {googleLoginMutation.error?.message}</p>
             )}
-            <Link to={'/register'}>
-               <p className="text-center text-blue-600 hover:underline mt-4">Don't have an Account? Register</p>
-            </Link>
          </div>
       </div>
    );

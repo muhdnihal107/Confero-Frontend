@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import { Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import Register from './pages/Register';
-import Header from './components/Header';
+import Profile from './pages/Profile';
 
 function App() {
 
@@ -13,7 +13,7 @@ function App() {
     <Routes>
       <Route path='/login' element={<Login/>}/>
       <Route path='/register' element={<Register/>}/>
-
+      <Route path='/profile' element={<Profile/>}></Route>
       
       <Route path='/' element={<Home/>}/>
     

@@ -20,8 +20,10 @@ export const loginUser = async (email: string, password: string) => {
   setLoading(true);
   setError(null);
   try {
-    const response = await api.post('login/', { email, password });
+    const response = await axios.post('http://localhost:8000/api/auth/login/', { email, password });
     const { refresh, access } = response.data;
+    console.log("hello",response.data);
+    
     useAuthStore.getState().setTokens(access, refresh); // Store tokens
     return response.data; // { refresh, access }
   } catch (error) {
