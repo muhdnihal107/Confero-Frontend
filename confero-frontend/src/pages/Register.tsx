@@ -24,7 +24,7 @@ const Register: React.FC = () => {
     password2: "",
   });
 
-  const { isLoading, error } = useAuthStore(); // Ensure Zustand store correctly provides these values
+  const { isLoadingRegistration, errorRegistration } = useAuthStore(); // Ensure Zustand store correctly provides these values
 
  const registerMutation = useMutation<FormData, Error, FormData>({
   mutationFn: (formData) => registerUser(formData),
@@ -119,12 +119,12 @@ const Register: React.FC = () => {
           />
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoadingRegistration}
             className="w-full bg-[#e93a3a] text-white p-3 rounded-md hover:bg-[#a12121]"
           >
-            {isLoading ? "Registering..." : "Sign up"}
+            {isLoadingRegistration ? "Registering..." : "Sign up"}
           </button>
-          {error && <p className="text-red-500 text-center">{String(error)}</p>}
+          {errorRegistration && <p className="text-red-500 text-center">{String(errorRegistration)}</p>}
         </form>
         <Link to={"/login"}>
           <p className="text-center text-blue-600 hover:underline mt-4">Already have an account? Login</p>
