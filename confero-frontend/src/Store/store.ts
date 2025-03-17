@@ -7,7 +7,7 @@ interface User {
   email: string;
   username: string | null;
   age: number | null;
-  Phone_number: string | null;
+  Phone_number?: string | null;
   Profile_photo?: string | null;
 }
 

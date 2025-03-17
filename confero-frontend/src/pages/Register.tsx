@@ -8,8 +8,6 @@ import { Link } from "react-router-dom";
 interface FormData {
   username: string;
   email: string;
-  age: string;
-  phone_number: string;
   password: string;
   password2: string;
 }
@@ -18,16 +16,14 @@ const Register: React.FC = () => {
   const [form, setForm] = useState<FormData>({
     username: "",
     email: "",
-    age: "",
-    phone_number: "",
     password: "",
     password2: "",
   });
 
   const { isLoadingRegistration, errorRegistration } = useAuthStore(); // Ensure Zustand store correctly provides these values
 
- const registerMutation = useMutation<FormData, Error, FormData>({
-  mutationFn: (formData) => registerUser(formData),
+ const registerMutation = useMutation({
+  mutationFn: (formData: FormData) => registerUser(formData),
   onSuccess: (data) => {
     console.log("Register successful:", data);
   },
@@ -74,8 +70,6 @@ const Register: React.FC = () => {
             <input
               type="number"
               name="age"
-              value={form.age}
-              onChange={handleChange}
               placeholder="Age"
               className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -84,8 +78,6 @@ const Register: React.FC = () => {
           <input
             type="tel"
             name="phone_number"
-            value={form.phone_number}
-            onChange={handleChange}
             placeholder="Phone Number"
             className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
