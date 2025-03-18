@@ -27,17 +27,17 @@ const Profile: React.FC = () => {
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
-
+console.log('ggggg',user);
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
 
   useEffect(() => {
-    if (user?.Phone_number) setPhoneNumber(user.Phone_number);
+    if (user?.phone_number) setPhoneNumber(user.phone_number);
   }, [user]);
 
   const profileMutation = useMutation({
-    mutationFn: (data: { Phone_number?: string,Profile_photo?: File }) => updateProfile(data),
+    mutationFn: (data: { phone_number?: string,profile_photo?: File }) => updateProfile(data),
     onSuccess: (data) => {
       console.log("Profile updated successfully:", data);
       useAuthStore.setState({
@@ -45,8 +45,8 @@ const Profile: React.FC = () => {
           email: user?.email || "",
           username: data.username || user?.username || null,
           age: data.age || null,
-          Phone_number: data.Phone_number || null,
-          Profile_photo: data.Profile_photo || user?.Profile_photo || null,
+          phone_number: data.phone_number || null,
+          profile_photo: data.profile_photo || user?.profile_photo || null,
         },
       });
       setIsEditing(false);
@@ -78,8 +78,8 @@ const Profile: React.FC = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     profileMutation.mutate({
-      Phone_number: phoneNumber,
-      Profile_photo: profilePhoto || undefined,
+      phone_number: phoneNumber,
+      profile_photo: profilePhoto || undefined,
     });
   };
 
@@ -108,9 +108,9 @@ const Profile: React.FC = () => {
           <div className="flex items-center space-x-4">
             {/* Profile Picture */}
             <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-              {user.Profile_photo ? (
+              {user.profile_photo ? (
                 <img
-                  src={`http://localhost:8000${user.Profile_photo}`}
+                  src={`http://localhost:8000${user.profile_photo}`}
                   alt="Profile"
                   className="w-full h-full rounded-full object-cover"
                 />
@@ -133,8 +133,8 @@ const Profile: React.FC = () => {
               {/* Full Name */}
               <p className="mt-2 text-gray-700">{user.email}</p>
               {/* Phone Number (if available) */}
-              {user.Phone_number && (
-                <p className="text-gray-600">Phone: {user.Phone_number}</p>
+              {user.phone_number && (
+                <p className="text-gray-600">Phone: {user.phone_number}</p>
               )}
             </div>
           </div>
@@ -174,9 +174,9 @@ const Profile: React.FC = () => {
                           alt="Preview"
                           className="w-full h-full object-cover"
                         />
-                      ) : user.Profile_photo ? (
+                      ) : user.profile_photo ? (
                         <img
-                          src={user.Profile_photo}
+                          src={user.profile_photo}
                           alt="Profile"
                           className="w-full h-full object-cover"
                         />

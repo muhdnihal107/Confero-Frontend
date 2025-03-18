@@ -20,18 +20,21 @@ const Register: React.FC = () => {
     password2: "",
   });
 
-  const { isLoadingRegistration, errorRegistration } = useAuthStore(); // Ensure Zustand store correctly provides these values
+  const { isLoadingRegistration, errorRegistration, setTokens, fetchProfileData } = useAuthStore();
 
- const registerMutation = useMutation({
-  mutationFn: (formData: FormData) => registerUser(formData),
-  onSuccess: (data) => {
-    console.log("Register successful:", data);
-  },
-  onError: (error) => {
-    console.error("Register failed:", error.message);
-  },
-});
-
+  const registerMutation = useMutation({
+    mutationFn: (formData: FormData) => registerUser(formData),
+    onSuccess: (data: { access_token: string; refresh_token: string }) => {
+      console.log("Register successful:", data);
+      setTokens(data.access_token, data.refresh_token); // Set tokens after registration
+      fetchProfileData(); // Fetch profile to populate user data
+      alert("Registration successful! Please verify your email.");
+    },
+    onError: (error: Error) => {
+      console.error("Register failed:", error.message);
+      useAuthStore.setState({ errorRegistration: error.message });
+    },
+  });
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({
@@ -57,28 +60,12 @@ const Register: React.FC = () => {
       <div className="bg-[#b1b1b171] backdrop-blur-[10px] shadow-lg rounded-xl p-8 w-full max-w-2xl mx-auto">
         <h2 className="text-4xl font-regular text-center text-gray-800">Register</h2>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="Full Name"
-              className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <input
-              type="number"
-              name="age"
-              placeholder="Age"
-              className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
           <input
-            type="tel"
-            name="phone_number"
-            placeholder="Phone Number"
+            type="text"
+            name="username"
+            value={form.username}
+            onChange={handleChange}
+            placeholder="Full Name"
             className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -118,7 +105,7 @@ const Register: React.FC = () => {
           </button>
           {errorRegistration && <p className="text-red-500 text-center">{String(errorRegistration)}</p>}
         </form>
-        <Link to={"/login"}>
+        <Link to="/login">
           <p className="text-center text-blue-600 hover:underline mt-4">Already have an account? Login</p>
         </Link>
       </div>

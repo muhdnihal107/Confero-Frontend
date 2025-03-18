@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { loginUser, registerUser, fetchProfile, updateProfile } from "../api/auth";
+import { loginUser, registerUser, fetchProfile, updateProfile, requestPasswordReset, resetPassword, verifyEmail } from "../api/auth";
 
 // Define User interface
 interface User {
   email: string;
   username: string | null;
   age: number | null;
-  Phone_number?: string | null;
-  Profile_photo?: string | null;
+  phone_number: string | null; // Updated to match backend
+  profile_photo: string | null; // Updated to match backend
+  is_verified?: boolean;
 }
 
 // Define ProfileResponse interface to match backend response
@@ -16,8 +17,8 @@ interface ProfileResponse {
   email: string;
   username: string | null;
   age: number | null;
-  Phone_number?: string | null;
-  Profile_photo?: string | null; // Adjust to match backend field name (lowercase)
+  phone_number: string | null;
+  profile_photo: string | null;
 }
 
 // Define TokenResponse to match backend response
@@ -38,22 +39,21 @@ interface AuthState {
   errorRegistration: string | null;
   isLoadingProfile: boolean;
   errorProfile: string | null;
+  isLoadingReset: boolean;
+  errorReset: string | null;
 
   setTokens: (access: string, refresh: string) => void;
   setUser: (user: User) => void;
   clearAuth: () => void;
 
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    email: string;
-    password: string;
-    username: string;
-    age?: number;
-    phone_number?: string;
-  }) => Promise<void>;
+  register: (data: { email: string; password: string; username: string }) => Promise<void>;
   fetchProfileData: () => Promise<void>;
-  updateProfileData: (data: { phone_number?: string }) => Promise<void>;
+  updateProfileData: (data: { phone_number?: string; profile_photo?: File }) => Promise<void>;
   logout: () => void;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (password: string, uid: string, token: string) => Promise<void>;
+  verifyEmail: (uid: string, token: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -69,6 +69,8 @@ export const useAuthStore = create<AuthState>()(
       errorRegistration: null,
       isLoadingProfile: false,
       errorProfile: null,
+      isLoadingReset: false,
+      errorReset: null,
 
       setTokens: (access, refresh) => {
         console.log("Setting tokens:", { access, refresh });
@@ -86,31 +88,26 @@ export const useAuthStore = create<AuthState>()(
           errorLogin: null,
           errorRegistration: null,
           errorProfile: null,
+          errorReset: null,
         }),
 
       login: async (email, password) => {
-        set({ isLoadingLogin: true, errorLogin: null });
+        set({ isLoadingLogin: false, errorLogin: null });
         try {
           const data: TokenResponse = await loginUser(email, password);
           console.log("Login response data:", data);
           set({
-            accessToken: data.access_token, // Adjusted to match backend
+            accessToken: data.access_token,
             refreshToken: data.refresh_token,
-            user: {
-              email,
-              username: null, // Username isn't available at login; fetchProfileData will populate it
-              age: null,
-              Phone_number: null,
-              Profile_photo: null,
-            },
+            user: { email, username: null, age: null, phone_number: null, profile_photo: null },
             isLoadingLogin: false,
           });
-          console.log("Store state after login:", get());
+          await get().fetchProfileData();
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Login failed";
           console.error("Login failed:", errorMessage);
           set({ errorLogin: errorMessage, isLoadingLogin: false });
-          throw error; // Re-throw for React Query
+          throw error;
         }
       },
 
@@ -119,24 +116,17 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response: TokenResponse = await registerUser(data);
           set({
-            accessToken: response.access_token, // Adjusted to match backend
+            accessToken: response.access_token,
             refreshToken: response.refresh_token,
-            user: {
-              email: data.email,
-              username: data.username, // Username is provided during registration
-              age: data.age || null,
-              Phone_number: data.phone_number || null,
-              Profile_photo: null, // Profile photo isn't set during registration
-            },
+            user: { email: data.email, username: data.username, age: null, phone_number: null, profile_photo: null },
             isLoadingRegistration: false,
           });
-          console.log("Store state after register:", get());
           await get().fetchProfileData();
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Registration failed";
           console.error("Registration failed:", errorMessage);
           set({ errorRegistration: errorMessage, isLoadingRegistration: false });
-          throw error; // Re-throw for React Query
+          throw error;
         }
       },
 
@@ -149,12 +139,13 @@ export const useAuthStore = create<AuthState>()(
               email: profileData.email || get().user?.email || "",
               username: profileData.username || null,
               age: profileData.age || null,
-              Phone_number: profileData.Phone_number || null,
-              Profile_photo: profileData.Profile_photo || null, // Adjusted to match backend field name
+              phone_number: profileData.phone_number || null,
+              profile_photo: profileData.profile_photo || null,
+              is_verified: get().user?.is_verified || false, // Sync with CustomUser
             },
             isLoadingProfile: false,
           });
-          console.log("Store state after fetchProfileData:");
+          console.log("Store state after fetchProfileData:", get());
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Failed to fetch profile";
           console.error("Failed to fetch profile:", errorMessage);
@@ -163,7 +154,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      updateProfileData: async (data: { Phone_number?: string,Profile_photo?: File }) => {
+      updateProfileData: async (data: { phone_number?: string; profile_photo?: File }) => {
         set({ isLoadingProfile: true, errorProfile: null });
         try {
           const response: ProfileResponse = await updateProfile(data);
@@ -172,8 +163,9 @@ export const useAuthStore = create<AuthState>()(
               email: get().user?.email || "",
               username: response.username || get().user?.username || null,
               age: response.age || get().user?.age || null,
-              Phone_number: response.Phone_number || null,
-              Profile_photo: response.Profile_photo || get().user?.Profile_photo || null, // Adjusted to match backend field name
+              phone_number: response.phone_number || null,
+              profile_photo: response.profile_photo || get().user?.profile_photo || null,
+              is_verified: get().user?.is_verified || false,
             },
             isLoadingProfile: false,
           });
@@ -188,9 +180,49 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         console.log("Logging out - Clearing store state");
-        get().clearAuth(); // Reset the state
+        get().clearAuth();
         localStorage.removeItem("auth-store");
         console.log("Store state after logout:", get());
+      },
+
+      requestPasswordReset: async (email) => {
+        set({ isLoadingReset: true, errorReset: null });
+        try {
+          await requestPasswordReset(email);
+          set({ isLoadingReset: false });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Failed to request password reset";
+          set({ errorReset: errorMessage, isLoadingReset: false });
+          throw error;
+        }
+      },
+
+      resetPassword: async (password, uid, token) => {
+        set({ isLoadingReset: true, errorReset: null });
+        try {
+          await resetPassword({ password, uid, token });
+          set({ isLoadingReset: false });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Failed to reset password";
+          set({ errorReset: errorMessage, isLoadingReset: false });
+          throw error;
+        }
+      },
+
+      verifyEmail: async (uid, token) => {
+        set({ isLoadingReset: true, errorReset: null }); // Reuse reset loading state
+        try {
+          await verifyEmail(uid, token);
+          const user = get().user;
+          if (user) {
+            set({ user: { ...user, is_verified: true }, isLoadingReset: false });
+          }
+          console.log("Email verified, updated store:", get());
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Email verification failed";
+          set({ errorReset: errorMessage, isLoadingReset: false });
+          throw error;
+        }
       },
     }),
     { name: "auth-store" }
