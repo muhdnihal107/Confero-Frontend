@@ -52,7 +52,7 @@ interface AuthState {
   updateProfileData: (data: { phone_number?: string; profile_photo?: File }) => Promise<void>;
   logout: () => void;
   requestPasswordReset: (email: string) => Promise<void>;
-  resetPassword: (password: string, uid: string, token: string) => Promise<void>;
+  resetPassword: (password: string, token: string) => Promise<void>;
   verifyEmail: (uid: string, token: string) => Promise<void>;
 }
 
@@ -197,10 +197,11 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      resetPassword: async (password, uid, token) => {
+      resetPassword: async (token,new_password) => {
         set({ isLoadingReset: true, errorReset: null });
         try {
-          await resetPassword({ password, uid, token });
+          console.log({token,new_password});
+          await resetPassword(token, new_password );
           set({ isLoadingReset: false });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Failed to reset password";

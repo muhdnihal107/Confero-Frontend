@@ -58,7 +58,6 @@ export const registerUser = async (data: {
 export const fetchProfile = async (): Promise<ProfileResponse> => {
   try {
     const response = await api.get<ProfileResponse>("profile/");
-    console.log(response.data, "lll");
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
@@ -92,7 +91,7 @@ export const updateProfile = async (data: {
 
 export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
   try {
-    const response = await api.post<{ message: string }>("forgot-password/", { email });
+    const response = await axios.post<{ message: string }>(`${API_URL}forgot-password/`, { email });
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
@@ -100,19 +99,19 @@ export const requestPasswordReset = async (email: string): Promise<{ message: st
   }
 };
 
-export const resetPassword = async (data: {
-  password: string;
-  uid: string;
-  token: string;
-}): Promise<{ message: string }> => {
+//---------------------------------------------------------------------------------------
+
+export const resetPassword = async (token: string, new_password: string): Promise<{ message: string }> => {
   try {
-    const response = await api.post<{ message: string }>("reset-password/", data);
+    const response = await axios.post<{ message: string }>(`${API_URL}reset-password/${token}`,{token,new_password} );
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || "Failed to reset password");
   }
 };
+
+//---------------------------------------------------------------------------------------
 
 export const verifyEmail = async (uid: string, token: string): Promise<{ message: string }> => {
   try {
@@ -123,5 +122,18 @@ export const verifyEmail = async (uid: string, token: string): Promise<{ message
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || "Email verification failed");
+  }
+};
+
+//-----------------------------------------------------------------------------------------
+
+export const fetchAllProfiles = async (): Promise<ProfileResponse[]> => {
+  try {
+    const response = await api.get<ProfileResponse[]>("profilelist/");
+    console.log("All profiles:", response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to fetch all profiles");
   }
 };

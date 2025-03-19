@@ -2,7 +2,7 @@ import { useState, ChangeEvent, FormEvent } from "react";
 import { useAuthStore } from "../Store/store";
 import { useMutation } from "@tanstack/react-query";
 import { registerUser } from "../api/auth";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // Define form data type
 interface FormData {
@@ -21,7 +21,7 @@ const Register: React.FC = () => {
   });
 
   const { isLoadingRegistration, errorRegistration, setTokens, fetchProfileData } = useAuthStore();
-
+  const navigate = useNavigate();
   const registerMutation = useMutation({
     mutationFn: (formData: FormData) => registerUser(formData),
     onSuccess: (data: { access_token: string; refresh_token: string }) => {
@@ -29,6 +29,7 @@ const Register: React.FC = () => {
       setTokens(data.access_token, data.refresh_token); // Set tokens after registration
       fetchProfileData(); // Fetch profile to populate user data
       alert("Registration successful! Please verify your email.");
+      navigate('/login')
     },
     onError: (error: Error) => {
       console.error("Register failed:", error.message);
@@ -53,20 +54,19 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div
-      className="flex items-center justify-center min-h-screen px-6 bg-cover bg-center"
-      style={{ backgroundImage: "url('/src/assets/background.jpg')" }}
-    >
-      <div className="bg-[#b1b1b171] backdrop-blur-[10px] shadow-lg rounded-xl p-8 w-full max-w-2xl mx-auto">
-        <h2 className="text-4xl font-regular text-center text-gray-800">Register</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+    <div className="flex items-center justify-center min-h-screen px-6 bg-gray-900/80">
+      <div className="bg-gray-800/90 backdrop-blur-md shadow-xl rounded-xl p-8 w-full max-w-2xl mx-auto border border-gray-700">
+        <h2 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
+          Create Account
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <input
             type="text"
             name="username"
             value={form.username}
             onChange={handleChange}
             placeholder="Full Name"
-            className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
             required
           />
           <input
@@ -75,7 +75,7 @@ const Register: React.FC = () => {
             value={form.email}
             onChange={handleChange}
             placeholder="Email"
-            className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
             required
           />
           <input
@@ -84,7 +84,7 @@ const Register: React.FC = () => {
             value={form.password}
             onChange={handleChange}
             placeholder="Password"
-            className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
             required
           />
           <input
@@ -93,20 +93,24 @@ const Register: React.FC = () => {
             value={form.password2}
             onChange={handleChange}
             placeholder="Confirm Password"
-            className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
             required
           />
           <button
             type="submit"
             disabled={isLoadingRegistration}
-            className="w-full bg-[#e93a3a] text-white p-3 rounded-md hover:bg-[#a12121]"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium disabled:opacity-50"
           >
-            {isLoadingRegistration ? "Registering..." : "Sign up"}
+            {isLoadingRegistration ? "Registering..." : "Sign Up"}
           </button>
-          {errorRegistration && <p className="text-red-500 text-center">{String(errorRegistration)}</p>}
+          {errorRegistration && (
+            <p className="text-red-400 text-center text-sm">{String(errorRegistration)}</p>
+          )}
         </form>
         <Link to="/login">
-          <p className="text-center text-blue-600 hover:underline mt-4">Already have an account? Login</p>
+          <p className="text-center text-indigo-400 hover:text-indigo-300 mt-6 transition-colors duration-200">
+            Already have an account? Login
+          </p>
         </Link>
       </div>
     </div>

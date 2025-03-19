@@ -8,26 +8,27 @@
 @tailwind utilities; 
 
 body {
-    background-image: url('/src/assets/remote-office-3d-rendering-concept-illustration.jpg');
-    background-size: cover;
-    background-position: 30% 60%;  /* Default position */
-    background-repeat: no-repeat;
-    height: 100vh;  /* Ensures full viewport height */
+  background-image: url('/src/assets/remote-office-3d-rendering-concept-illustration.jpg');
+  background-size: cover;
+  background-position: 30% 60%; /* Default position */
+  background-repeat: no-repeat;
+  background-attachment: fixed; /* Fixes the background so it doesn't scroll */
+  height: 100vh; /* Ensures full viewport height */
+}
+
+/* Adjust background for smaller screens */
+@media (max-width: 1024px) {
+  body {
+    background-position: center center; /* Shift view to center */
   }
-  
-  /* Adjust background for smaller screens */
-  @media (max-width: 1024px) {
-    body {
-      background-position: center center;  /* Shift view to center */
-    }
+}
+
+@media (max-width: 768px) {
+  body {
+    background-size: cover; /* Keep full coverage */
+    background-position: center center; /* Keep focus in center */
+    /* background-attachment: fixed; is already inherited from the main body rule */
   }
-  
-  @media (max-width: 768px) {
-    body {
-      background-size: cover;  /* Keep full coverage */
-      background-position: center center;  /* Keep focus in center */
-      background-attachment: fixed;  /* Prevent movement on scroll */
-    }
-  }
+}
   
   

@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Logo & Description */}
         <div>
-          <h2 className="text-2xl font-bold text-teal-400">BrandName</h2>
+          <h2 className="text-2xl font-bold text-teal-400">Confero</h2>
           <p className="mt-2 text-gray-400">
             Elevating your experience with cutting-edge design and innovation.
           </p>
@@ -46,7 +46,7 @@ const Footer: React.FC = () => {
 
       {/* Copyright */}
       <div className="mt-10 text-center border-t border-gray-700 pt-5 text-gray-500">
-        <p>&copy; {new Date().getFullYear()} BrandName. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} Confero. All rights reserved.</p>
       </div>
     </footer>
   );

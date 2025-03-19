@@ -27,7 +27,6 @@ const Profile: React.FC = () => {
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
-console.log('ggggg',user);
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
@@ -37,7 +36,7 @@ console.log('ggggg',user);
   }, [user]);
 
   const profileMutation = useMutation({
-    mutationFn: (data: { phone_number?: string,profile_photo?: File }) => updateProfile(data),
+    mutationFn: (data: { phone_number?: string, profile_photo?: File }) => updateProfile(data),
     onSuccess: (data) => {
       console.log("Profile updated successfully:", data);
       useAuthStore.setState({
@@ -88,8 +87,8 @@ console.log('ggggg',user);
     navigate("/login");
   };
 
-  if (isLoadingProfile) return <p className="text-center text-white">Loading profile...</p>;
-  if (errorProfile) return <p className="text-center text-red-500">Error: {errorProfile}</p>;
+  // if (isLoadingProfile) return <p className="text-center text-white text-lg animate-pulse">Loading profile...</p>;
+  // if (errorProfile) return <p className="text-center text-red-400 text-lg">Error: {errorProfile}</p>;
   if (!user) {
     navigate("/login");
     return null;
@@ -97,176 +96,176 @@ console.log('ggggg',user);
 
   return (
     <>
-    <Header/>
-    <div
-      className="flex items-center justify-center min-h-screen px-6 bg-cover bg-center"
-      style={{ backgroundImage: "url('/src/assets/background.jpg')" }}
-    >
-      <div className="bg-[#b1b1b171] backdrop-blur-[10px] shadow-lg rounded-xl p-8 w-full max-w-3xl">
-        {/* Profile Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Profile Picture */}
-            <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-              {user.profile_photo ? (
-                <img
-                  src={`http://localhost:8000${user.profile_photo}`}
-                  alt="Profile"
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <input className="text-gray-500 text-sm" type="file" />
-              )}
-              
-            </div>
-            <div>
-              {/* Username */}
-              <h2 className="text-2xl font-semibold text-gray-800">
-                {user.username || user?.email?.split("@")[0]}
-              </h2>
-              {/* Stats */}
-              <div className="flex space-x-4 mt-2 text-gray-600">
-                <p>0 Posts</p>
-                <p>0 Followers</p>
-                <p>0 Following</p>
+      <Header />
+      <div className="min-h-screen bg-gray-900/80 pt-20 pb-12 px-6">
+        <div className="bg-gray-800/90 backdrop-blur-md shadow-xl rounded-xl p-8 w-full max-w-3xl mx-auto border border-gray-700">
+          {/* Profile Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              {/* Profile Picture */}
+              <div className="w-28 h-28 rounded-full overflow-hidden ring-2 ring-indigo-500">
+                {user.profile_photo ? (
+                  <img
+                    src={`http://localhost:8000${user.profile_photo}`}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                    <span className="text-gray-400 text-lg font-medium">
+                      {user.username?.charAt(0)?.toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
               </div>
-              {/* Full Name */}
-              <p className="mt-2 text-gray-700">{user.email}</p>
-              {/* Phone Number (if available) */}
-              {user.phone_number && (
-                <p className="text-gray-600">Phone: {user.phone_number}</p>
-              )}
+              <div>
+                {/* Username */}
+                <h2 className="text-3xl font-semibold text-white">
+                  {user.username || user?.email?.split("@")[0]}
+                </h2>
+                {/* Stats */}
+                <div className="flex space-x-6 mt-2 text-gray-400">
+                  <p>0 Posts</p>
+                  <p>0 Followers</p>
+                  <p>0 Following</p>
+                </div>
+                {/* Full Name */}
+                <p className="mt-2 text-gray-300">{user.email}</p>
+                {/* Phone Number (if available) */}
+                {user.phone_number && (
+                  <p className="text-gray-400">Phone: {user.phone_number}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              {/* Edit Profile Button */}
+              <button
+                onClick={() => setIsEditing(true)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium"
+              >
+                Edit Profile
+              </button>
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 font-medium"
+              >
+                Logout
+              </button>
             </div>
           </div>
 
-          <div className="flex space-x-2">
-            {/* Edit Profile Button */}
-            <button
-              onClick={() => setIsEditing(true)}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-            >
-              Edit Profile
-            </button>
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-
-        {/* Edit Profile Form (Modal-like Overlay) */}
-        {isEditing && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Edit Profile</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Profile Photo Upload */}
-                <div>
-                  <label className="block text-gray-700">Profile Photo:</label>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden">
-                      {previewPhoto ? (
-                        <img
-                          src={previewPhoto}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : user.profile_photo ? (
-                        <img
-                          src={user.profile_photo}
-                          alt="Profile"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-500 text-sm">No Photo</span>
-                        </div>
-                      )}
+          {/* Edit Profile Form (Modal-like Overlay) */}
+          {isEditing && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
+                <h3 className="text-2xl font-semibold text-white mb-6">Edit Profile</h3>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Profile Photo Upload */}
+                  <div>
+                    <label className="block text-gray-300 mb-2">Profile Photo:</label>
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-indigo-500">
+                        {previewPhoto ? (
+                          <img
+                            src={previewPhoto}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : user.profile_photo ? (
+                          <img
+                            src={`http://localhost:8000${user.profile_photo}`}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                            <span className="text-gray-400 text-sm">No Photo</span>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
+                        disabled={profileMutation.isPending}
+                      />
                     </div>
+                  </div>
+                  {/* Phone Number */}
+                  <div>
+                    <label className="block text-gray-300 mb-2">Phone Number:</label>
                     <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      type="text"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="Enter phone number"
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
                       disabled={profileMutation.isPending}
                     />
                   </div>
-                </div>
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-gray-700">Phone Number:</label>
-                  <input
-                    type="text"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Enter phone number"
-                    className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={profileMutation.isPending}
-                  />
-                </div>
-                <div className="flex space-x-4">
-                  <button
-                    type="submit"
-                    className="bg-[#f06340] text-white px-4 py-2 rounded-md hover:bg-[#a12121] transition-colors"
-                    disabled={profileMutation.isPending}
-                  >
-                    {profileMutation.isPending ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setProfilePhoto(null);
-                      setPreviewPhoto(null);
-                    }}
-                    className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {profileMutation.isError && (
-                  <p className="text-red-500">Error: {profileMutation.error.message}</p>
-                )}
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Friends Section */}
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-gray-800">Friends</h3>
-          <div className="mt-4 space-y-4">
-            {mockFriends.map((friend) => (
-              <div key={friend.id} className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                  <span className="text-gray-500 text-sm">No Image</span>
-                </div>
-                <p className="text-gray-700">{friend.name}</p>
-                <button className="ml-auto text-gray-500 hover:text-gray-700">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 12h12"
-                    />
-                  </svg>
-                </button>
+                  <div className="flex space-x-4">
+                    <button
+                      type="submit"
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium disabled:opacity-50"
+                      disabled={profileMutation.isPending}
+                    >
+                      {profileMutation.isPending ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setProfilePhoto(null);
+                        setPreviewPhoto(null);
+                      }}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all duration-300 font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {profileMutation.isError && (
+                    <p className="text-red-400 text-sm">Error: {profileMutation.error.message}</p>
+                  )}
+                </form>
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Friends Section */}
+          <div className="mt-10">
+            <h3 className="text-xl font-semibold text-white mb-4">Friends</h3>
+            <div className="space-y-4">
+              {mockFriends.map((friend) => (
+                <div key={friend.id} className="flex items-center space-x-4 bg-gray-700/50 p-3 rounded-lg">
+                  <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No Image</span>
+                  </div>
+                  <p className="text-gray-300">{friend.name}</p>
+                  <button className="ml-auto text-gray-400 hover:text-gray-200 transition-colors duration-200">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 12h12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 };
