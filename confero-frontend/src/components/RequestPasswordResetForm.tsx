@@ -1,6 +1,6 @@
 // components/RequestPasswordResetForm.tsx
 import React, { useState } from 'react';
-import { useAuthStore } from '../Store/store';
+import { useAuthStore } from '../Store/authStore';
 
 const RequestPasswordResetForm: React.FC = () => {
   const [email, setEmail] = useState('');

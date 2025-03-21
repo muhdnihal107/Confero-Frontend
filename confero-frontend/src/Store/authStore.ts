@@ -2,17 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loginUser, registerUser, fetchProfile, updateProfile, requestPasswordReset, resetPassword, verifyEmail } from "../api/auth";
 
-// Define User interface
 interface User {
   email: string;
   username: string | null;
   age: number | null;
-  phone_number: string | null; // Updated to match backend
-  profile_photo: string | null; // Updated to match backend
+  phone_number: string | null; 
+  profile_photo: string | null; 
   is_verified?: boolean;
 }
 
-// Define ProfileResponse interface to match backend response
 interface ProfileResponse {
   email: string;
   username: string | null;
@@ -21,13 +19,11 @@ interface ProfileResponse {
   profile_photo: string | null;
 }
 
-// Define TokenResponse to match backend response
 interface TokenResponse {
   access_token: string;
   refresh_token: string;
 }
 
-// Define Authentication State
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
@@ -55,7 +51,7 @@ interface AuthState {
   resetPassword: (password: string, token: string) => Promise<void>;
   verifyEmail: (uid: string, token: string) => Promise<void>;
 }
-
+//--------------------------------------------------------------------------------------------------
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -90,7 +86,7 @@ export const useAuthStore = create<AuthState>()(
           errorProfile: null,
           errorReset: null,
         }),
-
+//-----------------------------------------------------------------------------------------------
       login: async (email, password) => {
         set({ isLoadingLogin: false, errorLogin: null });
         try {
@@ -110,7 +106,7 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//------------------------------------------------------------------------------------------------
       register: async (data) => {
         set({ isLoadingRegistration: true, errorRegistration: null });
         try {
@@ -129,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//----------------------------------------------------------------------------------------------
       fetchProfileData: async () => {
         set({ isLoadingProfile: true, errorProfile: null });
         try {
@@ -153,7 +149,7 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//-------------------------------------------------------------------------------------------------
       updateProfileData: async (data: { phone_number?: string; profile_photo?: File }) => {
         set({ isLoadingProfile: true, errorProfile: null });
         try {
@@ -177,14 +173,14 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//-------------------------------------------------------------------------------------------
       logout: () => {
         console.log("Logging out - Clearing store state");
         get().clearAuth();
         localStorage.removeItem("auth-store");
         console.log("Store state after logout:", get());
       },
-
+//------------------------------------------------------------------------------------------------
       requestPasswordReset: async (email) => {
         set({ isLoadingReset: true, errorReset: null });
         try {
@@ -196,7 +192,7 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//----------------------------------------------------------------------------------------------------
       resetPassword: async (token,new_password) => {
         set({ isLoadingReset: true, errorReset: null });
         try {
@@ -209,7 +205,7 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-
+//---------------------------------------------------------------------------------------------------
       verifyEmail: async (uid, token) => {
         set({ isLoadingReset: true, errorReset: null }); // Reuse reset loading state
         try {

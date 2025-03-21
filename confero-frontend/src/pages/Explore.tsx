@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllProfiles } from "../api/auth";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../Store/store";
+import { useAuthStore } from "../Store/authStore";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 

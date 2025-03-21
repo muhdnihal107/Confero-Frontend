@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
-import { useAuthStore } from "../Store/store";
+import { useAuthStore } from "../Store/authStore";
 
-const API_URL = "http://localhost:8000/api/auth/";
+const API_URL = "http://localhost:8002/api/auth/";
 
 const api = axios.create({
   baseURL: API_URL,

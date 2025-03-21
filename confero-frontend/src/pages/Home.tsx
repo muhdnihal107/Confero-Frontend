@@ -12,18 +12,14 @@ const Home: React.FC = () => {
   return (
     <>
       <div className={`relative w-full min-h-screen ${isDarkTheme ? "bg-[#030103a8]" : "bg-[#fffff00]"}`}>
-        {/* Header */}
         <Header />
 
-        {/* Background Image - Fixed */}
         <div
           className="fixed top-0 left-0 w-full h-full bg-cover bg-center z-[-1] opacity-80"
           
         ></div>
 
-        {/* Content Wrapper */}
         <div className="relative z-10 flex flex-col min-h-screen px-6 sm:px-12 pt-20">
-          {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
             className="fixed top-20 right-6 z-20 p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 transition-all duration-300 shadow-md"
@@ -39,7 +35,6 @@ const Home: React.FC = () => {
             )}
           </button>
 
-          {/* Hero Section */}
           <div className="mt-32 max-w-lg">
             <h1 className={`text-5xl sm:text-6xl font-bold leading-tight ${isDarkTheme ? "text-white" : "text-gray-900"}`}>
               Connect <br /> with <br /> Confidence
@@ -58,7 +53,6 @@ const Home: React.FC = () => {
             </button>
           </div>
 
-          {/* Features Section */}
           <div className="mt-20">
             <h2 className={`text-3xl font-semibold text-center ${isDarkTheme ? "bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent" : "text-gray-800"}`}>
               Why Choose Confero?
@@ -85,7 +79,6 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Call to Action Section */}
           <div className="mt-20 text-center">
             <h2 className={`text-3xl font-semibold ${isDarkTheme ? "bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent" : "text-gray-800"}`}>
               Ready to Connect?
@@ -104,7 +97,6 @@ const Home: React.FC = () => {
             </button>
           </div>
 
-          {/* Bottom Cards Section */}
           <div className="mt-20 flex gap-8 justify-end pr-6 sm:pr-20">
             <div className={`${isDarkTheme ? "bg-gray-800/90" : "bg-white"} bg-opacity-60 backdrop-blur-md p-6 rounded-xl w-72 h-64 shadow-lg border ${isDarkTheme ? "border-gray-700" : "border-gray-200"}`}>
               <h3 className={`text-xl font-bold ${isDarkTheme ? "text-white" : "text-gray-800"}`}>Community Hub</h3>
@@ -126,7 +118,6 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Spacer */}
           <div className="h-[20vh]"></div>
         </div>
       </div>

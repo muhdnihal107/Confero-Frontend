@@ -73,7 +73,7 @@
 // components/ResetPasswordForm.tsx
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAuthStore } from '../Store/store';
+import { useAuthStore } from '../Store/authStore';
 
 const ResetPasswordForm: React.FC = () => {
   const { token } = useParams<{ token: string }>();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "../Store/store";
+import { useAuthStore } from "../Store/authStore";
 import { useMutation } from "@tanstack/react-query";
 import { updateProfile } from "../api/auth";
 import { useNavigate } from "react-router-dom";

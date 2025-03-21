@@ -9,6 +9,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import ResetPasswordForm from './pages/ResetPasswordForm';
 import RequestPasswordResetForm from './components/RequestPasswordResetForm';
 import Explore from './pages/Explore';
+import Rooms from './pages/Rooms';
+import PublicRooms from './pages/PublicRooms';
 
 function App() {
 
@@ -24,6 +26,9 @@ function App() {
       <Route path="/reset-password/:token" element={<ResetPasswordForm />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/explore" element={<Explore />} />
+      <Route path="/room" element={<Rooms />} />
+      <Route path="/publicroom" element={<PublicRooms />} />
+      
 
     </Routes>
     </>
