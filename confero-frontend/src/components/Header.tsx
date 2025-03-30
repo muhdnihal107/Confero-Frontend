@@ -34,7 +34,7 @@ const Header = () => {
           className="px-4 py-1 rounded-lg bg-white/20 text-white placeholder-white focus:outline-none"
         />
 
-        <Link to="/login">
+        <Link to="/notification">
         <Bell className="text-white cursor-pointer hover:text-blue-400" size={24} />
         </Link>
         {/* Profile Icon */}

@@ -26,6 +26,7 @@ const Login: React.FC = () => {
       useAuthStore.setState({ errorLogin: error.message });
     },
   });
+  console.log(email)
 
   const forgotPasswordMutation = useMutation({
     mutationFn: () => requestPasswordReset(forgotEmail),

@@ -11,6 +11,7 @@ import RequestPasswordResetForm from './components/RequestPasswordResetForm';
 import Explore from './pages/Explore';
 import Rooms from './pages/Rooms';
 import PublicRooms from './pages/PublicRooms';
+import Notifications from './pages/Notifications';
 
 function App() {
 
@@ -28,7 +29,8 @@ function App() {
       <Route path="/explore" element={<Explore />} />
       <Route path="/room" element={<Rooms />} />
       <Route path="/publicroom" element={<PublicRooms />} />
-      
+      <Route path="/notification" element={<Notifications />} />
+
 
     </Routes>
     </>

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { loginUser, registerUser, fetchProfile, updateProfile, requestPasswordReset, resetPassword, verifyEmail } from "../api/auth";
 
 interface User {
+  user_id: number | null;
   email: string;
   username: string | null;
   age: number | null;
@@ -12,6 +13,7 @@ interface User {
 }
 
 interface ProfileResponse {
+  user_id: number;
   email: string;
   username: string | null;
   age: number | null;
@@ -95,7 +97,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
-            user: { email, username: null, age: null, phone_number: null, profile_photo: null },
+            user: { user_id: null,email, username: null, age: null, phone_number: null, profile_photo: null },
             isLoadingLogin: false,
           });
           await get().fetchProfileData();
@@ -114,7 +116,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             accessToken: response.access_token,
             refreshToken: response.refresh_token,
-            user: { email: data.email, username: data.username, age: null, phone_number: null, profile_photo: null },
+            user: {user_id:null, email: data.email, username: data.username, age: null, phone_number: null, profile_photo: null },
             isLoadingRegistration: false,
           });
           await get().fetchProfileData();
@@ -129,9 +131,10 @@ export const useAuthStore = create<AuthState>()(
       fetchProfileData: async () => {
         set({ isLoadingProfile: true, errorProfile: null });
         try {
-          const profileData: ProfileResponse = await fetchProfile();
+          const profileData = await fetchProfile();
           set({
             user: {
+              user_id: profileData.user_id?? null,
               email: profileData.email || get().user?.email || "",
               username: profileData.username || null,
               age: profileData.age || null,
@@ -156,6 +159,7 @@ export const useAuthStore = create<AuthState>()(
           const response: ProfileResponse = await updateProfile(data);
           set({
             user: {
+              user_id: null,
               email: get().user?.email || "",
               username: response.username || get().user?.username || null,
               age: response.age || get().user?.age || null,

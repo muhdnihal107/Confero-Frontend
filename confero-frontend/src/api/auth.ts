@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { useAuthStore } from "../Store/authStore";
 
-const API_URL = "http://localhost:8002/api/auth/";
+const API_URL = "http://localhost:8000/api/auth/";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -23,6 +23,7 @@ interface TokenResponse {
 }
 
 interface ProfileResponse {
+  user_id: number;
   email: string;
   username: string | null;
   age: number | null;
@@ -54,6 +55,8 @@ export const registerUser = async (data: {
     throw new Error(axiosError.response?.data?.detail || "Registration failed");
   }
 };
+
+//--------------------------------------------------------------------------------------------------
 
 export const fetchProfile = async (): Promise<ProfileResponse> => {
   try {
@@ -88,7 +91,19 @@ export const updateProfile = async (data: {
     throw new Error(axiosError.response?.data?.detail || "Failed to update profile");
   }
 };
+//-----------------------------------------------------------------------------------------
+export const sendFriendRequest = async (receiver_id: number) => {
+  try {
+    const response = await api.post("/friend-request/", { receiver_id });
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to sendfriend request");
+  }
+};
 
+
+//----------------------------------------------------------------------------------------------
 export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
   try {
     const response = await axios.post<{ message: string }>(`${API_URL}forgot-password/`, { email });
