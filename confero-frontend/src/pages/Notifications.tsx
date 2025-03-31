@@ -1,22 +1,47 @@
 // src/components/Notifications.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../Store/authStore";
 import { useNotificationStore } from "../Store/notificationStore";
+import { handleFriendRequestAction } from "../api/auth";
+import { Notification } from "../api/notification"; // Import Notification type
 
 const Notifications: React.FC = () => {
   const { accessToken } = useAuthStore();
   const { notifications, isLoadingNotifications, errorNotifications, fetchNotifications } = useNotificationStore();
-
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [actionStatus, setActionStatus] = useState<{ [key: string]: string }>({});
   useEffect(() => {
     if (accessToken) {
       fetchNotifications(accessToken);
     }
   }, [accessToken, fetchNotifications]);
 
-  const handleFriendRequest = (action: 'accept' | 'reject', notificationId: string) => {
-    // TODO: Implement friend request handling logic
-    console.log(`Friend request ${action}ed for notification ${notificationId}`);
-    // You would typically call an API here to handle the friend request
+  const handleFriendRequest = async (action: 'accept' | 'reject', notificationId: string) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [notificationId]: true }));
+      const notification = notifications.find(n => n.id === notificationId);
+      const friendRequestId = notification?.friend_requestId;
+      console.log(friendRequestId,notification)
+      if (!friendRequestId) {
+        throw new Error("Friend request ID not found in notification");
+      }
+
+      const response = await handleFriendRequestAction(friendRequestId, action);
+      setActionStatus(prev => ({ ...prev, [notificationId]: response.message }));
+      fetchNotifications(accessToken); // Refresh notifications
+
+      setTimeout(() => {
+        setActionStatus(prev => ({ ...prev, [notificationId]: "" }));
+      }, 3000);
+    } catch (error) {
+      const err = error as Error;
+      setActionStatus(prev => ({ ...prev, [notificationId]: err.message }));
+      setTimeout(() => {
+        setActionStatus(prev => ({ ...prev, [notificationId]: "" }));
+      }, 3000);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [notificationId]: false }));
+    }
   };
 
   if (isLoadingNotifications) {
@@ -43,7 +68,7 @@ const Notifications: React.FC = () => {
         </h2>
         <div className="space-y-4">
           {notifications.length > 0 ? (
-            notifications.map((notification) => (
+            notifications.map((notification: Notification) => (
               <div
                 key={notification.id}
                 className={`bg-gray-800/90 backdrop-blur-md rounded-xl p-5 shadow-lg border ${
@@ -55,22 +80,36 @@ const Notifications: React.FC = () => {
                   {new Date(notification.created_at).toLocaleString()}
                 </p>
                 
-                {/* Add buttons for friend request notifications */}
-                {notification.notification_type === "friend_request" && (
+                {notification.notification_type === "friend_request" && notification.friend_requestId && (
                   <div className="flex space-x-3 mt-3">
                     <button
                       onClick={() => handleFriendRequest('accept', notification.id)}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-white transition-colors"
+                      disabled={actionLoading[notification.id]}
+                      className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-white transition-colors ${
+                        actionLoading[notification.id] ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
-                      Accept
+                      {actionLoading[notification.id] ? "Processing..." : "Accept"}
                     </button>
                     <button
                       onClick={() => handleFriendRequest('reject', notification.id)}
-                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white transition-colors"
+                      disabled={actionLoading[notification.id]}
+                      className={`px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white transition-colors ${
+                        actionLoading[notification.id] ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
-                      Reject
+                      {actionLoading[notification.id] ? "Processing..." : "Reject"}
                     </button>
                   </div>
+                )}
+                {actionStatus[notification.id] && (
+                  <p className={`text-sm mt-2 ${
+                    actionStatus[notification.id].includes("error") || actionStatus[notification.id].includes("Failed")
+                      ? "text-red-400"
+                      : "text-green-400"
+                  }`}>
+                    {actionStatus[notification.id]}
+                  </p>
                 )}
               </div>
             ))

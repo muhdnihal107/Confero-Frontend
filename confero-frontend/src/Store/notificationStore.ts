@@ -18,7 +18,8 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   fetchNotifications: async (accessToken: string) => {
     set({ isLoadingNotifications: true, errorNotifications: null });
     try {
-      const data: Notification[] = await fetchNotifications(accessToken); // Pass accessToken and fix type
+      const data: Notification[] = await fetchNotifications(accessToken);
+      console.log(data,'nn'); // Pass accessToken and fix type
       set({ notifications: data, isLoadingNotifications: false });
     } catch (error) {
       set({

@@ -92,16 +92,25 @@ export const updateProfile = async (data: {
   }
 };
 //-----------------------------------------------------------------------------------------
-export const sendFriendRequest = async (receiver_id: number) => {
+export const sendFriendRequest = async (user_id: number) => {
   try {
-    const response = await api.post("/friend-request/", { receiver_id });
+    const response = await api.post("/friend-request/", { receiver_id : user_id });
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || "Failed to sendfriend request");
   }
 };
-
+//----------------------------------------------------------------------------------------------
+export const handleFriendRequestAction = async (requestId: string, action: 'accept' | 'reject') => {
+  try {
+    const response = await api.post(`/friend-request/${requestId}/action/`, { action });
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ error?: string }>;
+    throw new Error(axiosError.response?.data?.error || `Failed to ${action} friend request`);
+  }
+};
 
 //----------------------------------------------------------------------------------------------
 export const requestPasswordReset = async (email: string): Promise<{ message: string }> => {
@@ -146,6 +155,17 @@ export const fetchAllProfiles = async (): Promise<ProfileResponse[]> => {
   try {
     const response = await api.get<ProfileResponse[]>("profilelist/");
     console.log("All profiles:", response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to fetch all profiles");
+  }
+};
+
+
+export const fetchFriends = async (): Promise<ProfileResponse[]> => {
+  try {
+    const response = await api.get<ProfileResponse[]>("fetch-friends/");
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;

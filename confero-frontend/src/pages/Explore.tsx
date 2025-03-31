@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAllProfiles } from "../api/auth";
+import { fetchAllProfiles,sendFriendRequest } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../Store/authStore";
 import Header from "../components/Header";
@@ -10,6 +10,9 @@ const Explore: React.FC = () => {
   const { accessToken } = useAuthStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [sendingRequest, setSendingRequest] = useState<number | null>(null); // Track which profile is being processed
+  const [requestStatus, setRequestStatus] = useState<{ [key: number]: string }>({}); // Store request status per profile
+
 
   const { data: profiles, isLoading, error } = useQuery({
     queryKey: ["allProfiles"],
@@ -22,6 +25,27 @@ const Explore: React.FC = () => {
       navigate("/login");
     }
   }, [accessToken, navigate]);
+
+  const handleSendFriendRequest = async (userId: number) => {
+    try {
+      setSendingRequest(userId);
+      const response = await sendFriendRequest(userId);
+      setRequestStatus(prev => ({ ...prev, [userId]: "Friend request sent!" }));
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setRequestStatus(prev => ({ ...prev, [userId]: "" }));
+      }, 3000);
+    } catch (err) {
+      const error = err as Error;
+      setRequestStatus(prev => ({ ...prev, [userId]: error.message }));
+      setTimeout(() => {
+        setRequestStatus(prev => ({ ...prev, [userId]: "" }));
+      }, 3000);
+    } finally {
+      setSendingRequest(null);
+    }
+  };
+
 
   const filteredProfiles = profiles?.filter(profile =>
     profile.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -105,9 +129,24 @@ const Explore: React.FC = () => {
                   <p className="text-gray-500 text-sm mb-4">
                     {profile.phone_number || "No phone"}
                   </p>
-                  <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium">
-                    Add Friend
+                  <button
+                    onClick={() => handleSendFriendRequest(profile.user_id)}
+                    disabled={sendingRequest === profile.user_id}
+                    className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium ${
+                      sendingRequest === profile.user_id ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {sendingRequest === profile.user_id ? "Sending..." : "Add Friend"}
                   </button>
+                  {requestStatus[profile.user_id] && (
+                    <p className={`text-sm mt-2 ${
+                      requestStatus[profile.user_id].includes("error") || requestStatus[profile.user_id].includes("Failed")
+                        ? "text-red-400"
+                        : "text-green-400"
+                    }`}>
+                      {requestStatus[profile.user_id]}
+                    </p>
+                  )}
                 </div>
               </div>
             ))
