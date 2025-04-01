@@ -1,31 +1,28 @@
+// src/components/Profile.tsx
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../Store/authStore";
 import { useMutation } from "@tanstack/react-query";
-import { updateProfile } from "../api/auth";
+import { updateProfile, fetchFriends, Profile } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 
-// Mock friends data (replace with API call later)
-const mockFriends = [
-  { id: 1, name: "Participant name" },
-  { id: 2, name: "Participant name" },
-  { id: 3, name: "Participant name" },
-];
-
-const Profile: React.FC = () => {
+// Rename the component to ProfilePage to avoid conflict with Profile interface
+const ProfilePage: React.FC = () => {
   const {
     user,
     fetchProfileData,
-    updateProfileData,
     isLoadingProfile,
     errorProfile,
     logout,
   } = useAuthStore();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [friends, setFriends] = useState<Profile[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState<boolean>(false);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfileData();
@@ -35,9 +32,26 @@ const Profile: React.FC = () => {
     if (user?.phone_number) setPhoneNumber(user.phone_number);
   }, [user]);
 
+  useEffect(() => {
+    const loadFriends = async () => {
+      if (!user) return;
+      setFriendsLoading(true);
+      setFriendsError(null);
+      try {
+        const friendData = await fetchFriends();
+        setFriends(friendData);
+      } catch (error) {
+        setFriendsError((error as Error).message);
+      } finally {
+        setFriendsLoading(false);
+      }
+    };
+    loadFriends();
+  }, [user]);
+
   const profileMutation = useMutation({
-    mutationFn: (data: { phone_number?: string, profile_photo?: File }) => updateProfile(data),
-    onSuccess: (data) => {
+    mutationFn: (data: { phone_number?: string; profile_photo?: File }) => updateProfile(data),
+    onSuccess: (data: Profile) => {
       console.log("Profile updated successfully:", data);
       useAuthStore.setState({
         user: {
@@ -87,8 +101,12 @@ const Profile: React.FC = () => {
     navigate("/login");
   };
 
-  // if (isLoadingProfile) return <p className="text-center text-white text-lg animate-pulse">Loading profile...</p>;
-  // if (errorProfile) return <p className="text-center text-red-400 text-lg">Error: {errorProfile}</p>;
+  if (isLoadingProfile) {
+    return <p className="text-center text-white text-lg animate-pulse">Loading profile...</p>;
+  }
+  if (errorProfile) {
+    return <p className="text-center text-red-400 text-lg">Error: {errorProfile}</p>;
+  }
   if (!user) {
     navigate("/login");
     return null;
@@ -102,7 +120,6 @@ const Profile: React.FC = () => {
           {/* Profile Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              {/* Profile Picture */}
               <div className="w-28 h-28 rounded-full overflow-hidden ring-2 ring-indigo-500">
                 {user.profile_photo ? (
                   <img
@@ -119,34 +136,28 @@ const Profile: React.FC = () => {
                 )}
               </div>
               <div>
-                {/* Username */}
                 <h2 className="text-3xl font-semibold text-white">
-                  {user.username || user?.email?.split("@")[0]}
+                  {user.username || user.email.split("@")[0]}
                 </h2>
-                {/* Stats */}
                 <div className="flex space-x-6 mt-2 text-gray-400">
                   <p>0 Posts</p>
                   <p>0 Followers</p>
                   <p>0 Following</p>
                 </div>
-                {/* Full Name */}
                 <p className="mt-2 text-gray-300">{user.email}</p>
-                {/* Phone Number (if available) */}
                 {user.phone_number && (
                   <p className="text-gray-400">Phone: {user.phone_number}</p>
                 )}
+                {user.age && <p className="text-gray-400">Age: {user.age}</p>}
               </div>
             </div>
-
             <div className="flex space-x-3">
-              {/* Edit Profile Button */}
               <button
                 onClick={() => setIsEditing(true)}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium"
               >
                 Edit Profile
               </button>
-              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 font-medium"
@@ -156,13 +167,12 @@ const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Edit Profile Form (Modal-like Overlay) */}
+          {/* Edit Profile Form */}
           {isEditing && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
               <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
                 <h3 className="text-2xl font-semibold text-white mb-6">Edit Profile</h3>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Profile Photo Upload */}
                   <div>
                     <label className="block text-gray-300 mb-2">Profile Photo:</label>
                     <div className="flex items-center space-x-4">
@@ -194,7 +204,6 @@ const Profile: React.FC = () => {
                       />
                     </div>
                   </div>
-                  {/* Phone Number */}
                   <div>
                     <label className="block text-gray-300 mb-2">Phone Number:</label>
                     <input
@@ -237,32 +246,52 @@ const Profile: React.FC = () => {
           {/* Friends Section */}
           <div className="mt-10">
             <h3 className="text-xl font-semibold text-white mb-4">Friends</h3>
-            <div className="space-y-4">
-              {mockFriends.map((friend) => (
-                <div key={friend.id} className="flex items-center space-x-4 bg-gray-700/50 p-3 rounded-lg">
-                  <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
-                    <span className="text-gray-400 text-sm">No Image</span>
+            {friendsLoading ? (
+              <p className="text-gray-400 text-center">Loading friends...</p>
+            ) : friendsError ? (
+              <p className="text-red-400 text-center">Error: {friendsError}</p>
+            ) : friends.length > 0 ? (
+              <div className="space-y-4">
+                {friends.map((friend) => (
+                  <div key={friend.user_id} className="flex items-center space-x-4 bg-gray-700/50 p-3 rounded-lg">
+                    <div className="w-12 h-12 rounded-full overflow-hidden">
+                      {friend.profile_photo ? (
+                        <img
+                          src={`http://localhost:8000${friend.profile_photo}`}
+                          alt={friend.username || "Friend"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-600 flex items-center justify-center">
+                          <span className="text-gray-400 text-sm">
+                            {friend.username?.charAt(0)?.toUpperCase() || "F"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-gray-300">{friend.username || "Unknown"}</p>
+                    <button className="ml-auto text-gray-400 hover:text-gray-200 transition-colors duration-200">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 12h12"
+                        />
+                      </svg>
+                    </button>
                   </div>
-                  <p className="text-gray-300">{friend.name}</p>
-                  <button className="ml-auto text-gray-400 hover:text-gray-200 transition-colors duration-200">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M6 12h12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center">No friends yet.</p>
+            )}
           </div>
         </div>
       </div>
@@ -270,4 +299,4 @@ const Profile: React.FC = () => {
   );
 };
 
-export default Profile;
+export default ProfilePage; // Export renamed component

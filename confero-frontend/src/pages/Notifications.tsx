@@ -3,13 +3,16 @@ import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../Store/authStore";
 import { useNotificationStore } from "../Store/notificationStore";
 import { handleFriendRequestAction } from "../api/auth";
-import { Notification } from "../api/notification"; // Import Notification type
+import { clearNotifications, Notification } from "../api/notification";
 
 const Notifications: React.FC = () => {
   const { accessToken } = useAuthStore();
   const { notifications, isLoadingNotifications, errorNotifications, fetchNotifications } = useNotificationStore();
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const [actionStatus, setActionStatus] = useState<{ [key: string]: string }>({});
+  const [clearLoading, setClearLoading] = useState<boolean>(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+
   useEffect(() => {
     if (accessToken) {
       fetchNotifications(accessToken);
@@ -21,14 +24,14 @@ const Notifications: React.FC = () => {
       setActionLoading(prev => ({ ...prev, [notificationId]: true }));
       const notification = notifications.find(n => n.id === notificationId);
       const friendRequestId = notification?.friend_requestId;
-      console.log(friendRequestId,notification)
+
       if (!friendRequestId) {
         throw new Error("Friend request ID not found in notification");
       }
 
       const response = await handleFriendRequestAction(friendRequestId, action);
       setActionStatus(prev => ({ ...prev, [notificationId]: response.message }));
-      fetchNotifications(accessToken); // Refresh notifications
+      fetchNotifications(accessToken!); // Refresh notifications
 
       setTimeout(() => {
         setActionStatus(prev => ({ ...prev, [notificationId]: "" }));
@@ -41,6 +44,23 @@ const Notifications: React.FC = () => {
       }, 3000);
     } finally {
       setActionLoading(prev => ({ ...prev, [notificationId]: false }));
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!accessToken) return;
+    setClearLoading(true);
+    setClearError(null);
+    try {
+      await clearNotifications(accessToken);
+      // Clear notifications in the store after successful API call
+      useNotificationStore.setState({ notifications: [] });
+    } catch (error) {
+      const err = error as Error;
+      setClearError(err.message);
+      setTimeout(() => setClearError(null), 3000); // Clear error after 3 seconds
+    } finally {
+      setClearLoading(false);
     }
   };
 
@@ -63,9 +83,27 @@ const Notifications: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-900/80 pt-20 pb-12 px-6">
       <div className="max-w-3xl mx-auto">
-        <h2 className="text-4xl font-bold text-center mb-10 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-          Notifications
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-4xl font-bold text-center bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
+            Notifications
+          </h2>
+          {notifications.length > 0 && (
+            <button
+              onClick={handleClearNotifications}
+              disabled={clearLoading}
+              className={`px-4 py-2 rounded-md text-white transition-colors ${
+                clearLoading
+                  ? "bg-gray-600 cursor-not-allowed"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {clearLoading ? "Clearing..." : "Clear All"}
+            </button>
+          )}
+        </div>
+        {clearError && (
+          <p className="text-red-400 text-center mb-4">{clearError}</p>
+        )}
         <div className="space-y-4">
           {notifications.length > 0 ? (
             notifications.map((notification: Notification) => (

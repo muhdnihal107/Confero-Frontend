@@ -1,6 +1,7 @@
 // src/api/notificationApi.ts
 import { AxiosError } from "axios";
 import axios from "axios";
+import { useAuthStore } from "../Store/authStore";
 
 export interface Notification {
   id: string;
@@ -12,7 +13,20 @@ export interface Notification {
   created_at: string;
 }
 
-const API_BASE_URL = "http://localhost:8003/api"; // Adjust if your backend URL differs
+const API_BASE_URL = "http://localhost:8003/api";
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.log("No accessToken found in store");
+  }
+  return config;
+}); // Adjust if your backend URL differs
 
 
 export const fetchNotifications = async (accessToken: string): Promise<Notification[]> => {
@@ -27,4 +41,15 @@ export const fetchNotifications = async (accessToken: string): Promise<Notificat
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || "Login failed");  }
+};
+
+export const clearNotifications = async (accessToken: string): Promise<void> => {
+  try {
+    await api.delete("/clear/", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to clear notifications");
+  }
 };
