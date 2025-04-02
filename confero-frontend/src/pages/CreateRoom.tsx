@@ -1,159 +1,113 @@
-// import { useState, useEffect } from "react";
-// import { useAuthStore } from "../Store/authStore";
-// import { useRoomStore } from "../Store/RoomStore";
-// import { useMutation } from "@tanstack/react-query";
-// import { useNavigate, useParams } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createRoom } from "../api/room"; // Adjust API import path
+import { useAuthStore } from "../Store/authStore";
 
-// const CreateRoom: React.FC = () => {
-//   const { slug } = useParams<{ slug: string }>();
-// //  const { user, friends, fetchFriends } = useAuthStore();
-//   const { createRoom, updateRoom, fetchRooms, rooms } = useRoomStore();
-//   const navigate = useNavigate();
+const CreateRoom: React.FC = () => {
+  const navigate = useNavigate();
+  const { accessToken } = useAuthStore();
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    visibility: "public",
+    thumbnail: null as File | null,
+  });
+  console.log(formData,'create')
+  const [error, setError] = useState<string | null>(null);
 
-//   const [form, setForm] = useState({
-//     name: "",
-//     description: "",
-//     visibility: "public" as "public" | "private",
-//     invited_users: [] as string[],
-//     thumbnail: null as File | null,
-//   });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-//   useEffect(() => {
-//     fetchFriends();
-//     fetchRooms();
-//     if (slug) {
-//       const room = rooms.find((r) => r.slug === slug);
-//       if (room) {
-//         setForm({
-//           name: room.name,
-//           description: room.description || "",
-//           visibility: room.visibility,
-//           invited_users: room.invited_users,
-//           thumbnail: null,
-//         });
-//       }
-//     }
-//   }, [fetchFriends, fetchRooms, slug, rooms]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFormData((prev) => ({ ...prev, thumbnail: e.target.files![0] }));
+    }
+  };
 
-//   const createRoomMutation = useMutation({
-//     mutationFn: () => createRoom(form),
-//     onSuccess: () => {
-//       alert("Room created successfully!");
-//       navigate("/rooms");
-//     },
-//     onError: (error: Error) => {
-//       alert(`Failed to create room: ${error.message}`);
-//     },
-//   });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken) {
+      setError("You must be logged in to create a room.");
+      return;
+    }
 
-//   const updateRoomMutation = useMutation({
-//     mutationFn: () => updateRoom(slug!, form),
-//     onSuccess: () => {
-//       alert("Room updated successfully!");
-//       navigate("/rooms");
-//     },
-//     onError: (error: Error) => {
-//       alert(`Failed to update room: ${error.message}`);
-//     },
-//   });
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("description", formData.description);
+    data.append("visibility", formData.visibility);
+    if (formData.thumbnail) data.append("thumbnail", formData.thumbnail);
 
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (slug) {
-//       updateRoomMutation.mutate();
-//     } else {
-//       createRoomMutation.mutate();
-//     }
-//   };
+    try {
+      await createRoom(accessToken, data);
+      navigate("/room");
+    } catch (err) {
+      setError("Failed to create room. Please try again.");
+    }
+  };
 
-//   if (!user) {
-//     navigate("/login");
-//     return null;
-//   }
+  return (
+    <div className="relative w-full min-h-screen bg-[#030103a8] text-white">
+      <div className="flex flex-col min-h-screen pt-20 px-6 sm:px-12">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent mb-8">
+          Create a New Room
+        </h1>
+        <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-gray-800/90 p-8 rounded-xl shadow-lg border border-gray-700">
+          {error && <p className="text-red-400 mb-4">{error}</p>}
+          <div className="mb-6">
+            <label className="block text-lg font-semibold text-indigo-400 mb-2">Room Name</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="w-full p-3 rounded-lg bg-gray-900 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              required
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-lg font-semibold text-indigo-400 mb-2">Description</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              className="w-full p-3 rounded-lg bg-gray-900 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              rows={4}
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-lg font-semibold text-indigo-400 mb-2">Visibility</label>
+            <select
+              name="visibility"
+              value={formData.visibility}
+              onChange={handleChange}
+              className="w-full p-3 rounded-lg bg-gray-900 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          <div className="mb-6">
+            <label className="block text-lg font-semibold text-indigo-400 mb-2">Thumbnail</label>
+            <input
+              type="file"
+              name="thumbnail"
+              onChange={handleFileChange}
+              className="w-full p-3 rounded-lg bg-gray-900 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              accept="image/*"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full px-6 py-3 rounded-full shadow-md font-medium transition-all duration-300 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+          >
+            Create Room
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
-//   return (
-//     <div
-//       className="flex items-center justify-center min-h-screen px-6 bg-cover bg-center"
-//       style={{ backgroundImage: "url('/src/assets/background.jpg')" }}
-//     >
-//       <div className="bg-[#b1b1b171] backdrop-blur-[10px] shadow-lg rounded-xl p-8 w-full max-w-2xl mx-auto">
-//         <h2 className="text-4xl font-regular text-center text-gray-800">
-//           {slug ? "Edit Room" : "Create Room"}
-//         </h2>
-//         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-//           <input
-//             type="text"
-//             value={form.name}
-//             onChange={(e) => setForm({ ...form, name: e.target.value })}
-//             placeholder="Room Name"
-//             className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//             required
-//           />
-//           <textarea
-//             value={form.description}
-//             onChange={(e) => setForm({ ...form, description: e.target.value })}
-//             placeholder="Description"
-//             className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//           />
-//           <select
-//             value={form.visibility}
-//             onChange={(e) => setForm({ ...form, visibility: e.target.value as "public" | "private" })}
-//             className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//           >
-//             <option value="public">Public</option>
-//             <option value="private">Private</option>
-//           </select>
-//           <div>
-//             <label className="block text-gray-700">Thumbnail:</label>
-//             <input
-//               type="file"
-//               accept="image/*"
-//               onChange={(e) => {
-//                 const file = e.target.files?.[0];
-//                 if (file) setForm({ ...form, thumbnail: file });
-//               }}
-//               className="w-full p-3 border rounded-md"
-//             />
-//           </div>
-//           <div>
-//             <label className="block text-gray-700">Invite Friends:</label>
-//             {friends.map((friend) => (
-//               <div key={friend.id} className="flex items-center space-x-2">
-//                 <input
-//                   type="checkbox"
-//                   checked={form.invited_users.includes(friend.friend)}
-//                   onChange={(e) => {
-//                     if (e.target.checked) {
-//                       setForm({ ...form, invited_users: [...form.invited_users, friend.friend] });
-//                     } else {
-//                       setForm({
-//                         ...form,
-//                         invited_users: form.invited_users.filter((email) => email !== friend.friend),
-//                       });
-//                     }
-//                   }}
-//                 />
-//                 <span>{friend.friend}</span>
-//               </div>
-//             ))}
-//           </div>
-//           <button
-//             type="submit"
-//             disabled={createRoomMutation.isPending || updateRoomMutation.isPending}
-//             className="w-full bg-[#e93a3a] text-white p-3 rounded-md hover:bg-[#a12121]"
-//           >
-//             {slug
-//               ? updateRoomMutation.isPending
-//                 ? "Updating..."
-//                 : "Update Room"
-//               : createRoomMutation.isPending
-//               ? "Creating..."
-//               : "Create Room"}
-//           </button>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default CreateRoom;
+export default CreateRoom;

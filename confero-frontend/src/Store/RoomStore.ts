@@ -36,7 +36,10 @@ export const useRoomStore = create<RoomStore>((set) => ({
 
   createRoom: async (token, roomData) => {
     try {
+      console.log(roomData,"storeee");
+
       const newRoom = await createRoom(token, roomData);
+      
       set((state) => ({ rooms: [...state.rooms, newRoom] }));
     } catch (error) {
       console.error("Error creating room:", error);

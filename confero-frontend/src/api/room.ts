@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../Store/authStore";
-const API_URL = "http://localhost:8000"; // Update with your actual backend URL
+const API_URL = "http://localhost:8001/api"; // Update with your actual backend URL
 
 const api = axios.create({
   baseURL: API_URL,
@@ -24,6 +24,7 @@ export const fetchRooms = async (token: string) => {
 };
 
 export const createRoom = async (token: string, roomData: FormData) => {
+  console.log(roomData.values(),"apiii");
   const response = await axios.post(`${API_URL}/rooms/`, roomData, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
   });

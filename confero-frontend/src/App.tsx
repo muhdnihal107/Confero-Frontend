@@ -12,6 +12,7 @@ import Explore from './pages/Explore';
 import Rooms from './pages/Rooms';
 import PublicRooms from './pages/PublicRooms';
 import Notifications from './pages/Notifications';
+import CreateRoom from './pages/CreateRoom';
 
 function App() {
 
@@ -28,6 +29,7 @@ function App() {
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/explore" element={<Explore />} />
       <Route path="/room" element={<Rooms />} />
+      <Route path="/create-room" element={<CreateRoom />} />
       <Route path="/publicroom" element={<PublicRooms />} />
       <Route path="/notification" element={<Notifications />} />
 
