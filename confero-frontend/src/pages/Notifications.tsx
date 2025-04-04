@@ -1,28 +1,42 @@
-// src/components/Notifications.tsx
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../Store/authStore";
 import { useNotificationStore } from "../Store/notificationStore";
-import { handleFriendRequestAction } from "../api/auth";
 import { clearNotifications, Notification } from "../api/notification";
+import { handleFriendRequestAction } from "../api/auth"; // Import from auth API
 
 const Notifications: React.FC = () => {
   const { accessToken } = useAuthStore();
-  const { notifications, isLoadingNotifications, errorNotifications, fetchNotifications } = useNotificationStore();
-  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
-  const [actionStatus, setActionStatus] = useState<{ [key: string]: string }>({});
+  const {
+    notifications,
+    isLoadingNotifications,
+    errorNotifications,
+    fetchNotifications,
+    setupWebSocketConnection,
+    ws,
+  } = useNotificationStore();
   const [clearLoading, setClearLoading] = useState<boolean>(false);
   const [clearError, setClearError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({}); // Loading state for actions
+  const [actionStatus, setActionStatus] = useState<{ [key: string]: string }>({}); // Status messages for actions
 
   useEffect(() => {
     if (accessToken) {
       fetchNotifications(accessToken);
+      setupWebSocketConnection(accessToken);
     }
-  }, [accessToken, fetchNotifications]);
 
-  const handleFriendRequest = async (action: 'accept' | 'reject', notificationId: string) => {
+    return () => {
+      if (ws) {
+        ws.close(1000, "Component unmounted");
+        console.log("WebSocket closed on component unmount");
+      }
+    };
+  }, [accessToken, fetchNotifications, setupWebSocketConnection]);
+
+  const handleFriendRequest = async (action: "accept" | "reject", notificationId: string) => {
     try {
-      setActionLoading(prev => ({ ...prev, [notificationId]: true }));
-      const notification = notifications.find(n => n.id === notificationId);
+      setActionLoading((prev) => ({ ...prev, [notificationId]: true }));
+      const notification = notifications.find((n) => n.id === notificationId);
       const friendRequestId = notification?.friend_requestId;
 
       if (!friendRequestId) {
@@ -30,20 +44,20 @@ const Notifications: React.FC = () => {
       }
 
       const response = await handleFriendRequestAction(friendRequestId, action);
-      setActionStatus(prev => ({ ...prev, [notificationId]: response.message }));
-      fetchNotifications(accessToken!); // Refresh notifications
+      setActionStatus((prev) => ({ ...prev, [notificationId]: response.message }));
+      fetchNotifications(accessToken!); // Refresh notifications after action
 
       setTimeout(() => {
-        setActionStatus(prev => ({ ...prev, [notificationId]: "" }));
+        setActionStatus((prev) => ({ ...prev, [notificationId]: "" }));
       }, 3000);
     } catch (error) {
       const err = error as Error;
-      setActionStatus(prev => ({ ...prev, [notificationId]: err.message }));
+      setActionStatus((prev) => ({ ...prev, [notificationId]: err.message }));
       setTimeout(() => {
-        setActionStatus(prev => ({ ...prev, [notificationId]: "" }));
+        setActionStatus((prev) => ({ ...prev, [notificationId]: "" }));
       }, 3000);
     } finally {
-      setActionLoading(prev => ({ ...prev, [notificationId]: false }));
+      setActionLoading((prev) => ({ ...prev, [notificationId]: false }));
     }
   };
 
@@ -53,75 +67,57 @@ const Notifications: React.FC = () => {
     setClearError(null);
     try {
       await clearNotifications(accessToken);
-      // Clear notifications in the store after successful API call
       useNotificationStore.setState({ notifications: [] });
     } catch (error) {
       const err = error as Error;
       setClearError(err.message);
-      setTimeout(() => setClearError(null), 3000); // Clear error after 3 seconds
+      setTimeout(() => setClearError(null), 3000);
     } finally {
       setClearLoading(false);
     }
   };
 
   if (isLoadingNotifications) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900/80">
-        <p className="text-white text-lg animate-pulse">Loading notifications...</p>
-      </div>
-    );
+    return <p className="text-white text-lg animate-pulse">Loading notifications...</p>;
   }
 
   if (errorNotifications) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900/80">
-        <p className="text-red-400 text-lg">Error: {errorNotifications}</p>
-      </div>
-    );
+    return <p className="text-red-400 text-lg">Error: {errorNotifications}</p>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-900/80 pt-20 pb-12 px-6">
+    <div className="p-6 bg-gray-900/80 min-h-screen">
       <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-4xl font-bold text-center bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-            Notifications
-          </h2>
-          {notifications.length > 0 && (
-            <button
-              onClick={handleClearNotifications}
-              disabled={clearLoading}
-              className={`px-4 py-2 rounded-md text-white transition-colors ${
-                clearLoading
-                  ? "bg-gray-600 cursor-not-allowed"
-                  : "bg-red-600 hover:bg-red-700"
-              }`}
-            >
-              {clearLoading ? "Clearing..." : "Clear All"}
-            </button>
-          )}
-        </div>
-        {clearError && (
-          <p className="text-red-400 text-center mb-4">{clearError}</p>
+        <h2 className="text-4xl font-bold text-center text-white mb-4">Notifications</h2>
+        {notifications.length > 0 && (
+          <button
+            onClick={handleClearNotifications}
+            disabled={clearLoading}
+            className={`px-4 py-2 rounded-md text-white transition-colors ${
+              clearLoading ? "bg-gray-600 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+            }`}
+          >
+            {clearLoading ? "Clearing..." : "Clear All"}
+          </button>
         )}
-        <div className="space-y-4">
+        {clearError && <p className="text-red-400 text-center">{clearError}</p>}
+        <div className="mt-4 space-y-4">
           {notifications.length > 0 ? (
             notifications.map((notification: Notification) => (
               <div
                 key={notification.id}
-                className={`bg-gray-800/90 backdrop-blur-md rounded-xl p-5 shadow-lg border ${
+                className={`p-5 bg-gray-800 text-white rounded-lg border ${
                   notification.is_read ? "border-gray-700" : "border-indigo-500"
                 }`}
               >
-                <p className="text-gray-300">{notification.message}</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p>{notification.message}</p>
+                <p className="text-sm text-gray-400">
                   {new Date(notification.created_at).toLocaleString()}
                 </p>
-                
                 {notification.notification_type === "friend_request" && notification.friend_requestId && (
                   <div className="flex space-x-3 mt-3">
                     <button
-                      onClick={() => handleFriendRequest('accept', notification.id)}
+                      onClick={() => handleFriendRequest("accept", notification.id)}
                       disabled={actionLoading[notification.id]}
                       className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-white transition-colors ${
                         actionLoading[notification.id] ? "opacity-50 cursor-not-allowed" : ""
@@ -130,7 +126,7 @@ const Notifications: React.FC = () => {
                       {actionLoading[notification.id] ? "Processing..." : "Accept"}
                     </button>
                     <button
-                      onClick={() => handleFriendRequest('reject', notification.id)}
+                      onClick={() => handleFriendRequest("reject", notification.id)}
                       disabled={actionLoading[notification.id]}
                       className={`px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-white transition-colors ${
                         actionLoading[notification.id] ? "opacity-50 cursor-not-allowed" : ""
@@ -141,18 +137,21 @@ const Notifications: React.FC = () => {
                   </div>
                 )}
                 {actionStatus[notification.id] && (
-                  <p className={`text-sm mt-2 ${
-                    actionStatus[notification.id].includes("error") || actionStatus[notification.id].includes("Failed")
-                      ? "text-red-400"
-                      : "text-green-400"
-                  }`}>
+                  <p
+                    className={`text-sm mt-2 ${
+                      actionStatus[notification.id].includes("error") ||
+                      actionStatus[notification.id].includes("Failed")
+                        ? "text-red-400"
+                        : "text-green-400"
+                    }`}
+                  >
                     {actionStatus[notification.id]}
                   </p>
                 )}
               </div>
             ))
           ) : (
-            <p className="text-gray-400 text-center text-lg">No notifications yet.</p>
+            <p className="text-center text-gray-400">No notifications yet.</p>
           )}
         </div>
       </div>

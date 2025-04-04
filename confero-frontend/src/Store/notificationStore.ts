@@ -1,6 +1,5 @@
-// src/Store/notificationStore.ts
 import { create } from "zustand";
-import { fetchNotifications, Notification } from "../api/notification"; // Corrected import path
+import { fetchNotifications, Notification, setupWebSocket } from "../api/notification";
 
 interface NotificationState {
   notifications: Notification[];
@@ -8,18 +7,21 @@ interface NotificationState {
   errorNotifications: string | null;
   fetchNotifications: (accessToken: string) => Promise<void>;
   markAsRead: (notificationId: string) => void;
+  addNotification: (notification: Notification) => void; // Real-time update
+  setupWebSocketConnection: (accessToken: string) => void;
+  ws: WebSocket | null; // Store WebSocket instance
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   isLoadingNotifications: false,
   errorNotifications: null,
+  ws: null,
 
   fetchNotifications: async (accessToken: string) => {
     set({ isLoadingNotifications: true, errorNotifications: null });
     try {
       const data: Notification[] = await fetchNotifications(accessToken);
-      console.log(data,'nn'); // Pass accessToken and fix type
       set({ notifications: data, isLoadingNotifications: false });
     } catch (error) {
       set({
@@ -35,5 +37,18 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         notif.id === notificationId ? { ...notif, is_read: true } : notif
       ),
     }));
+  },
+
+  addNotification: (notification: Notification) => {
+    set((state) => ({
+      notifications: [notification, ...state.notifications], // Add to top
+    }));
+  },
+
+  setupWebSocketConnection: (accessToken: string) => {
+    const ws = setupWebSocket(accessToken, (notification) => {
+      get().addNotification(notification); // Handle new notification
+    });
+    set({ ws }); // Store WebSocket instance
   },
 }));
