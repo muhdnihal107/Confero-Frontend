@@ -13,7 +13,9 @@ import Rooms from './pages/Rooms';
 import PublicRooms from './pages/PublicRooms';
 import Notifications from './pages/Notifications';
 import CreateRoom from './pages/CreateRoom';
-import VideoCall from './pages/VideoCall';
+// import VideoCall from './pages/VideoConference';
+// import VideoConference from './pages/VideoConference';
+import RoomDetail from './pages/RoomDetail';
 
 function App() {
 
@@ -33,8 +35,8 @@ function App() {
       <Route path="/create-room" element={<CreateRoom />} />
       <Route path="/publicroom" element={<PublicRooms />} />
       <Route path="/notification" element={<Notifications />} />
-      <Route path="/videocall" element={<VideoCall />} />
-
+      <Route path="/room/:room_id" element={<RoomDetail />} />
+      
 
     </Routes>
     </>

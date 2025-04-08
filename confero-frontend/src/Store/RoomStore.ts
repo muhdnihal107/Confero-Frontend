@@ -1,68 +1,83 @@
-import { create } from "zustand";
-import { fetchRooms, createRoom, updateRoom, fetchPublicRooms } from "../api/room";
+import { create } from 'zustand';
+import { fetchPublicRooms, fetchUserRooms, createRoom, updateRoom, deleteRoom } from '../api/room';
 
-interface Room {
+export interface Room {
   id: number;
+  creator_id: number;
+  creator_email: string;
   name: string;
   slug: string;
-  description: string;
-  visibility: string;
+  description?: string;
+  visibility: 'public' | 'private';
   invited_users: string[];
   thumbnail?: string;
   participants: string[];
+  created_at: string;
+  updated_at: string;
 }
 
-interface RoomStore {
-  rooms: Room[];
+interface RoomState {
   publicRooms: Room[];
-  fetchRooms: (token: string) => Promise<void>;
-  createRoom: (token: string, roomData: FormData) => Promise<void>;
-  updateRoom: (token: string, roomId: number, updatedData: FormData) => Promise<void>;
+  userRooms: Room[];
   fetchPublicRooms: () => Promise<void>;
+  fetchUserRooms: () => Promise<void>;
+  createRoom: (roomData: Partial<Room> | FormData) => Promise<Room>;
+  updateRoom: (roomId: number, roomData: Partial<Room>) => Promise<void>;
+  deleteRoom: (roomId: number) => Promise<void>;
 }
 
-export const useRoomStore = create<RoomStore>((set) => ({
-  rooms: [],
+export const useRoomStore = create<RoomState>((set) => ({
   publicRooms: [],
-
-  fetchRooms: async (token) => {
-    try {
-      const data = await fetchRooms(token);
-      set({ rooms: data });
-    } catch (error) {
-      console.error("Error fetching rooms:", error);
-    }
-  },
-
-  createRoom: async (token, roomData) => {
-    try {
-      console.log(roomData,"storeee");
-
-      const newRoom = await createRoom(token, roomData);
-      
-      set((state) => ({ rooms: [...state.rooms, newRoom] }));
-    } catch (error) {
-      console.error("Error creating room:", error);
-    }
-  },
-
-  updateRoom: async (token, roomId, updatedData) => {
-    try {
-      const updatedRoom = await updateRoom(token, roomId, updatedData);
-      set((state) => ({
-        rooms: state.rooms.map((room) => (room.id === roomId ? updatedRoom : room)),
-      }));
-    } catch (error) {
-      console.error("Error updating room:", error);
-    }
-  },
-
+  userRooms: [],
   fetchPublicRooms: async () => {
     try {
-      const data = await fetchPublicRooms();
-      set({ publicRooms: data });
+      const rooms = await fetchPublicRooms();
+      set({ publicRooms: rooms });
     } catch (error) {
-      console.error("Error fetching public rooms:", error);
+      console.error('Failed to fetch public rooms:', error);
+    }
+  },
+  fetchUserRooms: async () => {
+    try {
+      const rooms = await fetchUserRooms();
+      set({ userRooms: rooms });
+    } catch (error) {
+      console.error('Failed to fetch user rooms:', error);
+    }
+  },
+  createRoom: async (roomData) => {
+    try {
+      const newRoom = await createRoom(roomData);
+      set((state) => ({
+        userRooms: [...state.userRooms, newRoom],
+        publicRooms: newRoom.visibility === 'public' ? [...state.publicRooms, newRoom] : state.publicRooms,
+      }));
+      return newRoom;
+    } catch (error) {
+      console.error('Failed to create room:', error);
+      throw error; // Re-throw to handle in component
+    }
+  },
+  updateRoom: async (roomId, roomData) => {
+    try {
+      const updatedRoom = await updateRoom(roomId, roomData);
+      set((state) => ({
+        userRooms: state.userRooms.map((room) => (room.id === roomId ? updatedRoom : room)),
+        publicRooms: state.publicRooms.map((room) => (room.id === roomId ? updatedRoom : room)),
+      }));
+    } catch (error) {
+      console.error('Failed to update room:', error);
+    }
+  },
+  deleteRoom: async (roomId) => {
+    try {
+      await deleteRoom(roomId);
+      set((state) => ({
+        userRooms: state.userRooms.filter((room) => room.id !== roomId),
+        publicRooms: state.publicRooms.filter((room) => room.id !== roomId),
+      }));
+    } catch (error) {
+      console.error('Failed to delete room:', error);
     }
   },
 }));
