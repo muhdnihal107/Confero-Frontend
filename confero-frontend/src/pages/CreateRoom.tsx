@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoomStore } from '../Store/RoomStore';
 import { useAuthStore } from '../Store/authStore';
+import Header from '../components/Header';
 interface RoomFormData {
   name: string;
   description: string;
@@ -96,8 +97,9 @@ const CreateRoom: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#b26fec] flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-[#eda26fe0] rounded-xl shadow-2xl p-8 transform transition-all duration-300 hover:shadow-3xl">
+    <div className="min-h-screen bg-[#1e203bc0] flex items-center justify-center p-4">
+      <Header/>
+      <div className="w-full max-w-lg bg-[#616b83bd] backdrop-blur-lg rounded-xl shadow-2xl p-8 transform transition-all duration-300 hover:shadow-3xl">
         <h1 className="text-3xl font-bold text-gray-900 mb-6 text-center">Create a New Room</h1>
         {error && (
           <p className="text-red-600 bg-red-100 p-3 rounded-lg mb-6 text-center font-medium">{error}</p>

@@ -1,7 +1,8 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '../Store/authStore';
 
 const API_URL = 'http://localhost:8001/api/';
+const WS_URL = 'ws://localhost:8001';
 
 export interface Room {
   id: number;
@@ -18,32 +19,71 @@ export interface Room {
   updated_at: string;
 }
 
-// Create Axios instance
+export interface WebRTCSignal {
+  type: 'webrtc_offer' | 'webrtc_answer' | 'ice_candidate' | 'chat_message';
+  data: RTCSessionDescriptionInit | RTCIceCandidateInit | string;
+  target?: string;
+  sender?: string;
+}
+
+interface ApiError {
+  message: string;
+  status?: number;
+}
+
 const api = axios.create({
   baseURL: API_URL,
 });
 
-// Request interceptor for auth token
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   } else {
-    console.log('No accessToken found in store');
+    console.warn('No accessToken found in store');
   }
   return config;
 });
 
-// Fetch all public rooms (no token required)
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    const apiError: ApiError = {
+      message: 'An error occurred',
+      status: error.response?.status,
+    };
+    if (error.response?.status === 401) {
+      apiError.message = 'Unauthorized: Please log in again';
+    } else if (error.response?.status === 403) {
+      apiError.message = 'Forbidden: You lack permission';
+    } else if (error.response?.status === 404) {
+      apiError.message = 'Resource not found';
+    }
+    console.error(`API error: ${apiError.message}`, error);
+    return Promise.reject(apiError);
+  }
+);
+
 export const fetchPublicRooms = async (): Promise<Room[]> => {
-  const response = await api.get('public-rooms/');
-  return response.data;
+  try {
+    const response = await api.get('public-rooms/');
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error('Error fetching public rooms:', apiError.message);
+    throw apiError;
+  }
 };
 
-// Fetch user's rooms (requires token)
 export const fetchUserRooms = async (): Promise<Room[]> => {
-  const response = await api.get('/rooms/');
-  return response.data;
+  try {
+    const response = await api.get('/rooms/');
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error('Error fetching user rooms:', apiError.message);
+    throw apiError;
+  }
 };
 
 export const fetchRoomDetails = async (roomId: string): Promise<Room> => {
@@ -51,45 +91,183 @@ export const fetchRoomDetails = async (roomId: string): Promise<Room> => {
     const response = await api.get(`room/${roomId}/`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching room details:', error);
-    throw error;
+    const apiError = error as ApiError;
+    console.error(`Error fetching room ${roomId} details:`, apiError.message);
+    throw apiError;
   }
 };
 
-// Create a room (supports both JSON and FormData)
+export const roomInvite = async (
+  receiver_id: number,
+  email: string,
+  room_id: number
+): Promise<{ message: string }> => {
+  try {
+    console.log(email,receiver_id);
+    const response = await api.post(`rooms/${room_id}/invite/`, {receiver_id, email });
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error(`Error inviting ${email} to room ${room_id}:`, apiError.message);
+    throw apiError;
+  }
+};
+
+export const acceptRoomInvite = async (room_id: number): Promise<{ message: string }> => {
+  try {
+    const response = await api.post(`rooms/${room_id}/accept/`);
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error(`Error accepting invite for room ${room_id}:`, apiError.message);
+    throw apiError;
+  }
+};
+
+
+export const joinRoom = async (room_id: number): Promise<{ message: string }> => {
+  try {
+    const response = await api.post(`rooms/${room_id}/join/`);
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error(`Error accepting invite for room ${room_id}:`, apiError.message);
+    throw apiError;
+  }
+};
+
+
 export const createRoom = async (roomData: Partial<Room> | FormData): Promise<Room> => {
-  console.log('Sending request to create room with:', roomData instanceof FormData ? 'FormData' : roomData);
-  const config = roomData instanceof FormData ? {headers: { 'Content-Type': 'multipart/form-data' }} : { headers: { 'Content-Type': 'application/json' } };
-  const response = await api.post('/rooms/', roomData, config);
-  console.log(response,'ppppppppp');
-  return response.data;
-}
+  try {
+    console.log('Sending request to create room with:', roomData instanceof FormData ? 'FormData' : roomData);
+    const config = roomData instanceof FormData
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : { headers: { 'Content-Type': 'application/json' } };
+    const response = await api.post('/rooms/', roomData, config);
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error('Error creating room:', apiError.message);
+    throw apiError;
+  }
+};
 
-// Update a room
 export const updateRoom = async (roomId: number, roomData: Partial<Room>): Promise<Room> => {
-  const response = await api.put(`/rooms/${roomId}/`, roomData);
-  return response.data;
+  try {
+    const response = await api.put(`/update-room/${roomId}/`, roomData);
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error(`Error updating room ${roomId}:`, apiError.message);
+    throw apiError;
+  }
 };
 
-// Delete a room
 export const deleteRoom = async (roomId: number): Promise<void> => {
-  await api.delete('/rooms/', { data: { id: roomId } });
+  try {
+    await api.delete(`/rooms/${roomId}/`);
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error(`Error deleting room ${roomId}:`, apiError.message);
+    throw apiError;
+  }
 };
 
-// WebSocket connection
-export const connectToRoomWebSocket = (roomId: number, onMessage: (event: MessageEvent) => void): WebSocket => {
-  const token = useAuthStore.getState().accessToken;
-  const ws = new WebSocket(`ws://localhost:8001/ws/room/${roomId}/?token=${token}`);
+export const connectToRoomWebSocket = (
+  roomId: number,
+  options: {
+    onMessage: (event: MessageEvent) => void;
+    onOpen?: () => void;
+    onClose?: (event: CloseEvent) => void;
+    onError?: (error: Event) => void;
+  }
+): WebSocket => {
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 5;
+  let ws: WebSocket | null = null;
 
-  ws.onopen = () => console.log(`Connected to room ${roomId} WebSocket`);
-  ws.onmessage = onMessage;
-  ws.onerror = (error) => console.error('WebSocket error:', error);
-  ws.onclose = () => console.log(`Disconnected from room ${roomId} WebSocket`);
+  const connect = () => {
+    try {
+      const token = useAuthStore.getState().accessToken;
+      if (!token) {
+        console.error('No access token for WebSocket connection');
+        options.onError?.(new Event('NoToken'));
+        throw new Error('No access token');
+      }
 
-  return ws;
+      ws = new WebSocket(`${WS_URL}/ws/room/${roomId}/?token=${token}`);
+      console.log(`Connecting to room ${roomId} WebSocket`);
+
+      ws.onopen = () => {
+        console.log(`Connected to room ${roomId} WebSocket`);
+        reconnectAttempts = 0;
+        options.onOpen?.();
+      };
+
+      ws.onmessage = options.onMessage;
+
+      ws.onerror = (error) => {
+        console.error(`WebSocket error for room ${roomId}:`, error);
+        options.onError?.(error);
+      };
+
+      ws.onclose = (event) => {
+        console.log(
+          `Disconnected from room ${roomId} WebSocket, code: ${event.code}, reason: ${event.reason}`
+        );
+        options.onClose?.(event);
+
+        if (reconnectAttempts < maxReconnectAttempts && event.code !== 1000) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+          console.log(
+            `Reconnecting to room ${roomId} in ${delay}ms (attempt ${reconnectAttempts + 1})`
+          );
+          reconnectAttempts++;
+          setTimeout(connect, delay);
+        } else if (event.code !== 1000) {
+          console.error(`Max reconnect attempts (${maxReconnectAttempts}) reached for room ${roomId}`);
+        }
+      };
+    } catch (error) {
+      console.error(`Failed to initialize WebSocket for room ${roomId}:`, error);
+      options.onError?.(error as Event);
+    }
+  };
+
+  connect();
+  return ws!;
 };
 
-// Send WebRTC signaling data
-export const sendWebRTCSignal = (ws: WebSocket, type: string, data: any, target?: string): void => {
-  ws.send(JSON.stringify({ type, data, target }));
+export const sendWebRTCSignal = (
+  ws: WebSocket,
+  type: WebRTCSignal['type'],
+  data: WebRTCSignal['data'],
+  target?: string
+): void => {
+  const signal: WebRTCSignal = { type, data, target };
+
+  const trySend = () => {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(signal));
+        console.log(`Sent ${type} signal to ${target || 'all'}`);
+      } else {
+        console.warn(
+          `WebSocket not ready (state: ${ws.readyState}) for ${type} signal to ${target || 'all'}`
+        );
+        setTimeout(trySend, 500);
+      }
+    } catch (error) {
+      console.error(`Failed to send ${type} signal to ${target || 'all'}:`, error);
+    }
+  };
+
+  trySend();
+};
+
+export const closeWebSocket = (ws: WebSocket | null): void => {
+  if (ws && ws.readyState !== WebSocket.CLOSED) {
+    ws.close(1000, 'Manual close');
+    console.log('WebSocket closed manually');
+  }
 };

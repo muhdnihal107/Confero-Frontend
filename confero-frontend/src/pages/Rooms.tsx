@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRoomStore } from '../Store/RoomStore';
 import { useAuthStore } from '../Store/authStore';
 import { Room } from '../api/room';
 import Header from '../components/Header';
-
+import { joinRoom } from '../api/room';
 const API_URL = 'http://localhost:8001'; // Update to 8001 if your backend runs there
 
 const Rooms: React.FC = () => {
@@ -39,6 +39,15 @@ const Rooms: React.FC = () => {
 
   // Combine and deduplicate rooms
   const allRooms = [...userRooms, ...publicRooms.filter((pr) => !userRooms.some((ur) => ur.id === pr.id))];
+
+  const handleRoomJoin = async(room_id: number)=>{
+    try{
+      const response = await joinRoom(room_id);
+      navigate(`/room/${room_id}`);
+    }catch(error){
+      console.error('error while join room');
+    }
+  };
 
   const handleRoomHover = (room: Room) => setSelectedRoom(room);
   const handleRoomLeave = () => setSelectedRoom(null);
@@ -120,16 +129,20 @@ const Rooms: React.FC = () => {
                   onMouseLeave={handleRoomLeave}
                 >
                   {room.thumbnail ? (
+                    <Link to={`/room/${room.id}`}>
                     <img
                       src={`${API_URL}${room.thumbnail}`}
                       alt={room.name}
                       className="w-full h-40 object-cover rounded-lg mb-4 group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => (e.currentTarget.src = '/fallback-image.jpg')} // Fallback for broken images
                     />
+                    </Link>
                   ) : (
+                    <Link to={`/room/${room.id}`}>
                     <div className="w-full h-40 bg-gray-700/50 rounded-lg mb-4 flex items-center justify-center group-hover:bg-gray-600/50 transition-colors duration-300">
                       <span className="text-gray-400">No Thumbnail</span>
                     </div>
+                    </Link>
                   )}
                   <h3 className="text-xl font-bold text-white group-hover:text-indigo-300 transition-colors duration-200">
                     {room.name}
@@ -140,7 +153,7 @@ const Rooms: React.FC = () => {
                   <p className="mt-2 text-sm text-gray-400">
                     Started: {new Date(room.created_at).toLocaleString()}
                   </p>
-                  <button className="mt-4 w-full px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 ease-in-out">
+                  <button onClick={()=>handleRoomJoin(room.id)} className="mt-4 w-full px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 ease-in-out">
                     Join
                   </button>
                 </div>

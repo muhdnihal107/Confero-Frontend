@@ -47,4 +47,11 @@ body {
 .animate-slideInLeft {
   animation: slideInLeft 0.5s ease-in-out;
 }
-  
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 6s infinite ease-in-out;
+}

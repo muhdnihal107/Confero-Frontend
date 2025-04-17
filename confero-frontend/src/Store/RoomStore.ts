@@ -1,20 +1,5 @@
 import { create } from 'zustand';
-import { fetchPublicRooms, fetchUserRooms, createRoom, updateRoom, deleteRoom } from '../api/room';
-
-export interface Room {
-  id: number;
-  creator_id: number;
-  creator_email: string;
-  name: string;
-  slug: string;
-  description?: string;
-  visibility: 'public' | 'private';
-  invited_users: string[];
-  thumbnail?: string;
-  participants: string[];
-  created_at: string;
-  updated_at: string;
-}
+import { fetchPublicRooms, fetchUserRooms, createRoom, updateRoom, deleteRoom, Room } from '../api/room';
 
 interface RoomState {
   publicRooms: Room[];
@@ -35,6 +20,7 @@ export const useRoomStore = create<RoomState>((set) => ({
       set({ publicRooms: rooms });
     } catch (error) {
       console.error('Failed to fetch public rooms:', error);
+      throw error;
     }
   },
   fetchUserRooms: async () => {
@@ -43,6 +29,7 @@ export const useRoomStore = create<RoomState>((set) => ({
       set({ userRooms: rooms });
     } catch (error) {
       console.error('Failed to fetch user rooms:', error);
+      throw error;
     }
   },
   createRoom: async (roomData) => {
@@ -55,7 +42,7 @@ export const useRoomStore = create<RoomState>((set) => ({
       return newRoom;
     } catch (error) {
       console.error('Failed to create room:', error);
-      throw error; // Re-throw to handle in component
+      throw error;
     }
   },
   updateRoom: async (roomId, roomData) => {
@@ -67,6 +54,7 @@ export const useRoomStore = create<RoomState>((set) => ({
       }));
     } catch (error) {
       console.error('Failed to update room:', error);
+      throw error;
     }
   },
   deleteRoom: async (roomId) => {
@@ -78,6 +66,11 @@ export const useRoomStore = create<RoomState>((set) => ({
       }));
     } catch (error) {
       console.error('Failed to delete room:', error);
+      throw error;
     }
   },
 }));
+
+// Selectors for performance
+export const selectPublicRooms = (state: RoomState) => state.publicRooms;
+export const selectUserRooms = (state: RoomState) => state.userRooms;

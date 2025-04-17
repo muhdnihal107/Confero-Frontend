@@ -3,6 +3,7 @@ import { useAuthStore } from "../Store/authStore";
 import { useNotificationStore } from "../Store/notificationStore";
 import { clearNotifications, Notification } from "../api/notification";
 import { handleFriendRequestAction } from "../api/auth"; // Import from auth API
+import { acceptRoomInvite } from "../api/room";
 
 const Notifications: React.FC = () => {
   const { accessToken } = useAuthStore();
@@ -61,6 +62,34 @@ const Notifications: React.FC = () => {
     }
   };
 
+  const handleRoomInvite = async (notificationId: string)=>{
+    try{
+      setActionLoading((prev) => ({ ...prev, [notificationId]: true }));
+      const notification = notifications.find((n) => n.id === notificationId);
+      const friendRequestId = notification?.friend_requestId;
+      if (!friendRequestId) {
+        throw new Error("Friend request ID not found in notification");
+      }
+  
+      const response = await acceptRoomInvite(friendRequestId);
+      setActionStatus((prev) => ({ ...prev, [notificationId]: response.message }));
+      fetchNotifications(accessToken!); // Refresh notifications after action
+
+      setTimeout(() => {
+        setActionStatus((prev) => ({ ...prev, [notificationId]: "" }));
+      }, 3000);
+    }catch (error) {
+      const err = error as Error;
+      setActionStatus((prev) => ({ ...prev, [notificationId]: err.message }));
+      setTimeout(() => {
+        setActionStatus((prev) => ({ ...prev, [notificationId]: "" }));
+      }, 3000);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [notificationId]: false }));
+    }
+  };
+
+
   const handleClearNotifications = async () => {
     if (!accessToken) return;
     setClearLoading(true);
@@ -114,6 +143,31 @@ const Notifications: React.FC = () => {
                 <p className="text-sm text-gray-400">
                   {new Date(notification.created_at).toLocaleString()}
                 </p>
+                {notification.notification_type === "room_invite" && notification.friend_requestId && (
+                  <div className="flex space-x-3 mt-3">
+                    <button
+                      onClick={() => handleRoomInvite(notification.id)}
+                      disabled={actionLoading[notification.id]}
+                      className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-white transition-colors ${
+                        actionLoading[notification.id] ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      {actionLoading[notification.id] ? "Processing..." : "Accept"}
+                    </button>
+                  </div>
+                )}
+                {actionStatus[notification.id] && (
+                  <p
+                    className={`text-sm mt-2 ${
+                      actionStatus[notification.id].includes("error") ||
+                      actionStatus[notification.id].includes("Failed")
+                        ? "text-red-400"
+                        : "text-green-400"
+                    }`}
+                  >
+                    {actionStatus[notification.id]}
+                  </p>
+                )}
                 {notification.notification_type === "friend_request" && notification.friend_requestId && (
                   <div className="flex space-x-3 mt-3">
                     <button

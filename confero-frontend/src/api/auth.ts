@@ -26,8 +26,8 @@ export interface ProfileResponse {
   user_id: number;
   email: string;
   username: string | null;
-  age: number | null;
   phone_number: string | null; // Updated to match backend
+  bio: string | null;
   profile_photo: string | null;
 }
 
@@ -174,7 +174,7 @@ export const fetchAllProfiles = async (): Promise<ProfileResponse[]> => {
 
 export const fetchFriends = async (): Promise<ProfileResponse[]> => {
   try {
-    const response = await api.get<Profile[]>("fetch-friends/");
+    const response = await api.get<ProfileResponse[]>("fetch-friends/");
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
