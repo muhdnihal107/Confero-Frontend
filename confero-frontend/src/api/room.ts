@@ -23,7 +23,7 @@ export interface WebRTCSignal {
   type: 'webrtc_offer' | 'webrtc_answer' | 'ice_candidate' | 'chat_message';
   data: RTCSessionDescriptionInit | RTCIceCandidateInit | string;
   target?: string;
-  sender?: string;
+  sender: string;
 }
 
 interface ApiError {
@@ -98,13 +98,13 @@ export const fetchRoomDetails = async (roomId: string): Promise<Room> => {
 };
 
 export const roomInvite = async (
-  receiver_id: number,
   email: string,
+  receiver_id: number,
   room_id: number
 ): Promise<{ message: string }> => {
   try {
-    console.log(email,receiver_id);
-    const response = await api.post(`rooms/${room_id}/invite/`, {receiver_id, email });
+    console.log(`${email}-email--${receiver_id}-receiverID,--${room_id}-roodID`);
+    const response = await api.post(`rooms/${room_id}/invite/`, { receiver_id, email });
     return response.data;
   } catch (error) {
     const apiError = error as ApiError;
@@ -123,7 +123,6 @@ export const acceptRoomInvite = async (room_id: number): Promise<{ message: stri
     throw apiError;
   }
 };
-
 
 export const joinRoom = async (room_id: number): Promise<{ message: string }> => {
   try {
@@ -242,26 +241,25 @@ export const sendWebRTCSignal = (
   ws: WebSocket,
   type: WebRTCSignal['type'],
   data: WebRTCSignal['data'],
-  target?: string
+  target: string,
+  sender: string
 ): void => {
-  const signal: WebRTCSignal = { type, data, target };
-
+  const signal: WebRTCSignal = { type, data, target, sender };
   const trySend = () => {
     try {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(signal));
-        console.log(`Sent ${type} signal to ${target || 'all'}`);
+        console.log(`Sent ${type} signal to ${target} from ${sender}`);
       } else {
         console.warn(
-          `WebSocket not ready (state: ${ws.readyState}) for ${type} signal to ${target || 'all'}`
+          `WebSocket not ready (state: ${ws.readyState}) for ${type} signal to ${target} from ${sender}`
         );
         setTimeout(trySend, 500);
       }
     } catch (error) {
-      console.error(`Failed to send ${type} signal to ${target || 'all'}:`, error);
+      console.error(`Failed to send ${type} signal to ${target} from ${sender}:`, error);
     }
   };
-
   trySend();
 };
 

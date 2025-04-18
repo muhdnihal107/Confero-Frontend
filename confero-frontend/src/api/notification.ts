@@ -44,6 +44,22 @@ export const fetchNotifications = async (accessToken: string): Promise<Notificat
   }
 };
 
+
+export const fetchReadedNotifications = async (accessToken: string): Promise<Notification[]> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/notifications/readed/`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to fetch notifications");
+  }
+};
+
 export const clearNotifications = async (accessToken: string): Promise<void> => {
   try {
     await api.delete("/clear/", {
@@ -54,6 +70,18 @@ export const clearNotifications = async (accessToken: string): Promise<void> => 
     throw new Error(axiosError.response?.data?.detail || "Failed to clear notifications");
   }
 };
+
+
+export const markAsRead = async (notification_id: string): Promise<void> => {
+  try {
+    console.log('mar',notification_id)
+    await axios.patch(`${API_BASE_URL}/read/${notification_id}/`);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to mark as read notification");
+  }
+};
+
 
 export const setupWebSocket = (
   accessToken: string,

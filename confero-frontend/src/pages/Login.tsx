@@ -26,7 +26,6 @@ const Login: React.FC = () => {
       useAuthStore.setState({ errorLogin: error.message });
     },
   });
-  console.log(email)
 
   const forgotPasswordMutation = useMutation({
     mutationFn: () => requestPasswordReset(forgotEmail),
@@ -60,7 +59,6 @@ const Login: React.FC = () => {
   // 
   
 
-  const clientId = '1092656538511-9g9vtc7715g4gsm088tjjiac7ksu9ita.apps.googleusercontent.com'; // Replace with your Google Client ID
 
 const handleSuccess = async (credentialResponse: any) => {
   const { credential } = credentialResponse;

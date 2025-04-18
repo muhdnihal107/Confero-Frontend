@@ -56,6 +56,8 @@ const VideoCall: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const remoteVideoRefs = useRef<Map<string, HTMLVideoElement | null>>(new Map());
+  const pendingOffers = useRef<WebRTCOffer[]>([]);
   const { user } = useAuthStore();
   const userEmail = user?.email || 'unknown';
 
@@ -68,10 +70,10 @@ const VideoCall: React.FC = () => {
       }
       try {
         const roomData = await fetchRoomDetails(room_id);
-        console.log(' 1 Room data loaded:', roomData);
+        console.log('1 Room data loaded:', roomData);
         setRoom(roomData);
       } catch (error) {
-        console.error(' 2 Failed to load room:', error);
+        console.error('2 Failed to load room:', error);
         setError('Failed to load room details');
       }
     };
@@ -81,38 +83,48 @@ const VideoCall: React.FC = () => {
   // Setup local video stream
   useEffect(() => {
     let stream: MediaStream | null = null;
+
     const startVideo = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        console.log(' 3 Local stream initialized:', stream.getTracks());
+        console.log('3 Local stream initialized:', stream.getTracks());
         setVideoStream(stream);
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().catch((e) => console.error('Error playing local video:', e));
+          videoRef.current.onloadedmetadata = async () => {
+            try {
+              await videoRef.current?.play();
+              console.log('4 Local video playing');
+            } catch (e) {
+              console.error('Error playing local video:', e);
+            }
+          };
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
         setError('Failed to access camera. Please check permissions.');
       }
     };
+
     startVideo();
 
     return () => {
-      if (videoStream) {
-        videoStream.getTracks().forEach((track) => track.stop());
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
 
-  // Setup WebSocket and WebRTC
+  // Setup WebSocket
   useEffect(() => {
-    if (!room_id || !videoStream || !room) return;
+    if (!room_id) return;
 
     const ws = connectToRoomWebSocket(parseInt(room_id), {
       onMessage: (event: MessageEvent) => {
         try {
           const data: WebSocketMessage = JSON.parse(event.data);
-          console.log(' 4 Received WebSocket message:', data);
+          console.log('5 Received WebSocket message:', data);
           if ('sender' in data && data.sender === userEmail) return;
           if (data.type === 'user_joined' && data.user_email === userEmail) return;
           switch (data.type) {
@@ -121,9 +133,14 @@ const VideoCall: React.FC = () => {
               break;
             case 'webrtc_offer':
               if (data.target === userEmail || !data.target) {
-                console.log(` 5 Processing offer from ${data.sender}`);
-                handleOffer(data);
-              }else{
+                if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+                  console.log(`6 Queuing offer from ${data.sender} due to WebSocket not ready`);
+                  pendingOffers.current.push(data);
+                } else {
+                  console.log(`7 Processing offer from ${data.sender}`);
+                  handleOffer(data);
+                }
+              } else {
                 console.warn(`Offer ignored: target=${data.target}, userEmail=${userEmail}`);
               }
               break;
@@ -138,9 +155,8 @@ const VideoCall: React.FC = () => {
               }
               break;
             case 'user_joined':
-              console.log(`6 ${data.user_email} joined the room`);
-              if (data.user_email !== userEmail && userEmail < data.user_email) {
-                console.log(`Initiating call to ${data.user_email} (email order)`);
+              console.log(`8 ${data.user_email} joined the room`);
+              if (data.user_email !== userEmail) {
                 initiateCall(data.user_email);
               }
               break;
@@ -156,24 +172,29 @@ const VideoCall: React.FC = () => {
         }
       },
       onOpen: () => {
-        console.log('7 WebSocket opened, checking participants');
-        const participants = room.participants.filter(
-          (email) => email !== userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        );
-        console.log(' 8 Participants:', participants);
-        participants.forEach((targetEmail) => {
-          if (userEmail < targetEmail && !peerConnections.current.has(targetEmail)) {
-            console.log(`9 Initiating call to ${targetEmail} (email order)`);
-            initiateCall(targetEmail);
+        console.log('9 WebSocket opened');
+        // Process pending offers
+        const processPendingOffers = () => {
+          if (pendingOffers.current.length > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log(`10 Processing ${pendingOffers.current.length} queued offers`);
+            pendingOffers.current.forEach((offer) => {
+              console.log(`11 Processing queued offer from ${offer.sender}`);
+              handleOffer(offer);
+            });
+            pendingOffers.current = [];
+          } else if (pendingOffers.current.length > 0) {
+            console.log('12 WebSocket not ready, retrying pending offers');
+            setTimeout(processPendingOffers, 500);
           }
-        });
+        };
+        processPendingOffers();
       },
       onError: (error) => {
-        console.error(' 10 WebSocket error:', error);
+        console.error('13 WebSocket error:', error);
         setError('WebSocket connection failed');
       },
       onClose: (event) => {
-        console.log(` 11 WebSocket closed: code=${event.code}, reason=${event.reason}`);
+        console.log(`14 WebSocket closed: code=${event.code}, reason=${event.reason}`);
         if (event.code !== 1000) {
           setError('WebSocket disconnected unexpectedly');
         }
@@ -184,64 +205,123 @@ const VideoCall: React.FC = () => {
 
     return () => {
       if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-        console.log('Cleaning up WebSocket on unmount');
+        console.log('15 Closing WebSocket');
         closeWebSocket(wsRef.current);
       }
+    };
+  }, [room_id, userEmail]);
+
+  // Setup WebRTC
+  useEffect(() => {
+    if (!room || !videoStream || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log('16 WebRTC setup skipped: missing dependencies');
+      return;
+    }
+
+    const participants = room.participants.filter(
+      (email) => email !== userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    );
+    console.log('17 Participants:', participants);
+    participants.forEach((targetEmail) => {
+      if (!peerConnections.current.has(targetEmail)) {
+        console.log(`18 Initiating call to ${targetEmail}`);
+        initiateCall(targetEmail);
+      }
+    });
+  }, [room, videoStream, userEmail]);
+
+  // Cleanup WebRTC
+  useEffect(() => {
+    return () => {
       peerConnections.current.forEach((pc, email) => {
-        console.log(`12 Closing peer connection for ${email}`);
+        console.log(`19 Closing peer connection for ${email}`);
         pc.close();
       });
       peerConnections.current.clear();
       setRemoteStreams({});
       setConnectionStatus({});
+      remoteVideoRefs.current.clear();
     };
-  }, [room_id,userEmail, room?.id, videoStream, userEmail]);
+  }, []);
+
+  // Play remote videos
+  useEffect(() => {
+    Object.entries(remoteStreams).forEach(([email, stream]) => {
+      console.log(`20 Stream tracks for ${email}:`, stream.getTracks().map((t) => ({
+        kind: t.kind,
+        id: t.id,
+        enabled: t.enabled,
+      })));
+      const videoEl = remoteVideoRefs.current.get(email);
+      if (videoEl) {
+        if (videoEl.srcObject !== stream) {
+          console.log(`21 Assigning stream to video for ${email}:`, stream);
+          videoEl.srcObject = stream;
+        }
+        videoEl.play().catch((e) => {
+          console.error(`Error playing video for ${email}:`, e);
+        });
+      }
+    });
+  }, [remoteStreams]);
 
   const createPeerConnection = (targetEmail: string) => {
-    console.log(`13 Creating peer connection for ${targetEmail}`);
+    console.log(`22 Creating peer connection for ${targetEmail}`);
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        // Add TURN server
+        // Add TURN server for better connectivity
+        // {
+        //   urls: 'turn:your.turn.server:3478',
+        //   username: 'username',
+        //   credential: 'password',
+        // },
       ],
     });
 
     pc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log(`14 Sending ICE candidate to ${targetEmail}:`, event.candidate);
-        sendWebRTCSignal(wsRef.current, 'ice_candidate', event.candidate, targetEmail);
+        console.log(`23 Sending ICE candidate to ${targetEmail}:`, event.candidate);
+        sendWebRTCSignal(wsRef.current, 'ice_candidate', event.candidate, targetEmail, userEmail);
       }
     };
 
     pc.ontrack = (event) => {
-      console.log(`15 Received remote track from ${targetEmail}:`, event.track, event.streams);
+      console.log(`24 Received remote track from ${targetEmail}:`, event.track, event.streams);
       if (event.streams[0]) {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [targetEmail]: event.streams[0],
-        }));
+        setRemoteStreams((prev) => {
+          if (prev[targetEmail]?.id === event.streams[0].id) {
+            console.log(`25 Skipping duplicate stream for ${targetEmail}`);
+            return prev;
+          }
+          console.log(`26 Adding stream for ${targetEmail}`);
+          return {
+            ...prev,
+            [targetEmail]: event.streams[0],
+          };
+        });
       }
     };
 
     pc.onconnectionstatechange = () => {
-      console.log(`18 Connection state for ${targetEmail}: ${pc.connectionState}`);
+      console.log(`27 Connection state for ${targetEmail}: ${pc.connectionState}`);
       setConnectionStatus((prev) => ({
         ...prev,
         [targetEmail]: pc.connectionState,
       }));
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        console.error(`19 Connection to ${targetEmail} failed`);
+        console.error(`28 Connection to ${targetEmail} failed`);
         handleUserLeft(targetEmail);
       }
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log(`20 ICE connection state for ${targetEmail}: ${pc.iceConnectionState}`);
+      console.log(`29 ICE connection state for ${targetEmail}: ${pc.iceConnectionState}`);
     };
 
     if (videoStream) {
       videoStream.getTracks().forEach((track) => {
-        console.log(`21 Adding track: ${track.kind} - ${track.id} - enabled: ${track.enabled}`);
+        console.log(`30 Adding track: ${track.kind} - ${track.id} - enabled: ${track.enabled}`);
         pc.addTrack(track, videoStream);
       });
     }
@@ -252,21 +332,22 @@ const VideoCall: React.FC = () => {
 
   const initiateCall = async (targetEmail: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.log(`22 Skipping call to ${targetEmail}: WebSocket unavailable`);
+      console.log(`31 Retrying call to ${targetEmail} after WebSocket reconnect`);
+      setTimeout(() => initiateCall(targetEmail), 1000);
       return;
     }
     if (peerConnections.current.has(targetEmail)) {
-      console.log(`23 Skipping call to ${targetEmail}: Connection exists`);
+      console.log(`32 Skipping call to ${targetEmail}: Connection exists`);
       return;
     }
 
-    console.log(`24 Initiating WebRTC call to ${targetEmail}`);
+    console.log(`33 Initiating WebRTC call to ${targetEmail}`);
     const pc = createPeerConnection(targetEmail);
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      console.log(`25 Sending offer to ${targetEmail}:`, offer);
-      sendWebRTCSignal(wsRef.current, 'webrtc_offer', offer, targetEmail);
+      console.log(`34 Sending offer to ${targetEmail}:`, offer);
+      sendWebRTCSignal(wsRef.current, 'webrtc_offer', offer, targetEmail, userEmail);
     } catch (error) {
       console.error(`Failed to initiate call to ${targetEmail}:`, error);
       pc.close();
@@ -276,15 +357,16 @@ const VideoCall: React.FC = () => {
 
   const handleOffer = async (data: WebRTCOffer) => {
     const sender = data.sender;
-    console.log(`26 Handling offer from ${sender}`);
+    console.log(`35 Handling offer from ${sender}`);
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.error(`Cannot handle offer from ${sender}: WebSocket not connected`);
+      pendingOffers.current.push(data);
       return;
     }
 
     let pc = peerConnections.current.get(sender);
     if (!pc || pc.signalingState === 'closed') {
-      console.log(`27 Creating new peer connection for ${sender}`);
+      console.log(`36 Creating new peer connection for ${sender}`);
       pc = createPeerConnection(sender);
     }
 
@@ -294,11 +376,11 @@ const VideoCall: React.FC = () => {
         await pc.setLocalDescription({ type: 'rollback' });
       }
       await pc.setRemoteDescription(new RTCSessionDescription(data.data));
-      console.log(`28 Set remote description for offer from ${sender}`);
+      console.log(`37 Set remote description for offer from ${sender}`);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      console.log(`29 Created answer for ${sender}:`, answer);
-      sendWebRTCSignal(wsRef.current, 'webrtc_answer', answer, sender);
+      console.log(`38 Created answer for ${sender}:`, answer);
+      sendWebRTCSignal(wsRef.current, 'webrtc_answer', answer, sender, userEmail);
     } catch (error) {
       console.error(`Error handling offer from ${sender}:`, error);
       if (pc) {
@@ -310,7 +392,7 @@ const VideoCall: React.FC = () => {
 
   const handleAnswer = async (data: WebRTCAnswer) => {
     const sender = data.sender;
-    console.log(`30 Handling answer from ${sender}`);
+    console.log(`39 Handling answer from ${sender}`);
     const pc = peerConnections.current.get(sender);
     if (!pc) {
       console.warn(`No peer connection for ${sender}`);
@@ -318,7 +400,7 @@ const VideoCall: React.FC = () => {
     }
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(data.data));
-      console.log(`31 Set remote description for answer from ${sender}`);
+      console.log(`40 Set remote description for answer from ${sender}`);
     } catch (error) {
       console.error(`Error handling answer from ${sender}:`, error);
     }
@@ -326,7 +408,7 @@ const VideoCall: React.FC = () => {
 
   const handleIceCandidate = async (data: WebRTCIceCandidate) => {
     const sender = data.sender;
-    console.log(`32 Handling ICE candidate from ${sender}`);
+    console.log(`41 Handling ICE candidate from ${sender}`);
     const pc = peerConnections.current.get(sender);
     if (!pc) {
       console.warn(`No peer connection for ${sender} to handle ICE candidate`);
@@ -334,14 +416,14 @@ const VideoCall: React.FC = () => {
     }
     try {
       await pc.addIceCandidate(new RTCIceCandidate(data.data));
-      console.log(`33 Added ICE candidate from ${sender}`);
+      console.log(`42 Added ICE candidate from ${sender}`);
     } catch (error) {
       console.error(`Error adding ICE candidate from ${sender}:`, error);
     }
   };
 
   const handleUserLeft = (userEmail: string) => {
-    console.log(`34 ${userEmail} left, cleaning up`);
+    console.log(`43 ${userEmail} left, cleaning up`);
     const pc = peerConnections.current.get(userEmail);
     if (pc) {
       pc.close();
@@ -350,7 +432,7 @@ const VideoCall: React.FC = () => {
     setRemoteStreams((prev) => {
       const newStreams = { ...prev };
       delete newStreams[userEmail];
-      console.log(`35 ${userEmail} removed from streams`);
+      console.log(`44 ${userEmail} removed from streams`);
       return newStreams;
     });
     setConnectionStatus((prev) => {
@@ -358,6 +440,7 @@ const VideoCall: React.FC = () => {
       delete newStatus[userEmail];
       return newStatus;
     });
+    remoteVideoRefs.current.delete(userEmail);
   };
 
   const sendChatMessage = (e: React.FormEvent) => {
@@ -373,6 +456,7 @@ const VideoCall: React.FC = () => {
       sender: userEmail,
     };
     wsRef.current.send(JSON.stringify(message));
+    setChatMessages((prev) => [...prev, message]);
     setChatInput('');
   };
 
@@ -441,31 +525,27 @@ const VideoCall: React.FC = () => {
                   Waiting for other participants...
                 </p>
               )}
-              {Object.entries(remoteStreams).map(([email, stream]) => {
-                console.log(`Rendering video box for ${email}`);
-                return (
-                  <div key={email} className="text-center">
-                    <p className="mb-2 text-gray-300 font-medium">
-                      {email} ({connectionStatus[email] || 'connecting'})
-                    </p>
-                    <video
-                      autoPlay
-                      playsInline
-                      className="w-full max-w-md rounded-xl shadow-lg border border-gray-700/50"
-                      ref={(el) => {
-                        if (el && stream) {
-                          console.log(`Assigning stream to video for ${email}:`, stream);
-                          el.srcObject = stream;
-                          el.play().catch((e) =>
-                            console.error(`Error playing video for ${email}:`, e)
-                          );
-                        }
-                      }}
-                      onError={(e) => console.error(`Remote video error for ${email}:`, e)}
-                    />
-                  </div>
-                );
-              })}
+              {Object.entries(remoteStreams).map(([email, stream]) => (
+                <div key={email} className="text-center">
+                  <p className="mb-2 text-gray-300 font-medium">
+                    {email} ({connectionStatus[email] || 'connecting'})
+                  </p>
+                  <video
+                    ref={(el) => {
+                      remoteVideoRefs.current.set(email, el);
+                      if (el && stream) {
+                        console.log(`45 Assigning initial stream to video for ${email}:`, stream);
+                        el.srcObject = stream;
+                        el.play().catch((e) => console.error(`Initial play error for ${email}:`, e));
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    className="w-full max-w-md rounded-xl shadow-lg border border-gray-700/50"
+                    onError={(e) => console.error(`Remote video error for ${email}:`, e)}
+                  />
+                </div>
+              ))}
             </div>
             {/* Controls */}
             <div className="flex justify-center gap-4 mt-8">

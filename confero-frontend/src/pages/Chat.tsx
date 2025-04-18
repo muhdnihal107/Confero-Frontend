@@ -7,8 +7,7 @@ import { useAuthStore } from '../Store/authStore';
 import { useChatStore } from '../Store/ChatStore';
 import { ChatGroup, Message } from '../api/chat';
 import { ProfileResponse } from '../api/auth';
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import Header from '../components/Header';
 
 const Chat: React.FC = () => {
   const { accessToken, user } = useAuthStore();
@@ -21,14 +20,14 @@ const Chat: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch friends
-  const { data: friends, isLoading: friendsLoading } = useQuery({
+  const { data: friends, isLoading: friendsLoading } = useQuery<ProfileResponse[]>({
     queryKey: ['friends'],
     queryFn: fetchFriends,
     enabled: !!accessToken,
   });
 
   // Fetch chat groups
-  const { data: groups, isLoading: groupsLoading } = useQuery({
+  const { data: groups, isLoading: groupsLoading } = useQuery<ChatGroup[]>({
     queryKey: ['chatGroups'],
     queryFn: () => fetchChatGroups(accessToken!),
     enabled: !!accessToken,
@@ -54,20 +53,24 @@ const Chat: React.FC = () => {
   }, [currentGroup]);
 
   // Fetch messages for current group
-  const { data: fetchedMessages, isLoading: messagesLoading } = useQuery<Message[]>({
+  const { data: fetchedMessages, isLoading: messagesLoading, error, isError } = useQuery<Message[]>({
     queryKey: ['messages', currentGroup?.id],
     queryFn: () => fetchMessages(currentGroup!.id, accessToken!),
     enabled: !!accessToken && !!currentGroup,
-    refetchOnMount: 'always', // Force refetch on component mount
-    onError: (error) => {
-      console.error('Message fetch error:', error);
-    },
+    refetchOnMount: 'always',
   });
+
+  // Log errors from useQuery
+  useEffect(() => {
+    if (isError && error) {
+      console.error('Message fetch error:', error);
+    }
+  }, [isError, error]);
 
   // Add fetched messages to store
   useEffect(() => {
-    if (fetchedMessages) {
-      fetchedMessages.forEach((msg) => {
+    if (fetchedMessages && Array.isArray(fetchedMessages)) {
+      fetchedMessages.forEach((msg: Message) => {
         if (!useChatStore.getState().messages.some((existing) => existing.id === msg.id)) {
           useChatStore.getState().addMessage(msg);
         }
@@ -102,15 +105,11 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Clear messages when currentGroup changes
-useEffect(() => {
-  if (currentGroup) {
-    useChatStore.getState().setMessages([]);
-  }
-}, [currentGroup]);
-
   const handleSelectFriend = async (friend: ProfileResponse) => {
     if (!accessToken || !user) return;
+
+    // Clear messages before switching group
+    useChatStore.getState().setMessages([]);
 
     const existingGroup = groups?.find(
       (group) =>
@@ -122,6 +121,7 @@ useEffect(() => {
 
     if (existingGroup) {
       setCurrentGroup(existingGroup);
+      queryClient.invalidateQueries(['messages', existingGroup.id]);
     } else {
       try {
         const newGroup = await createChatGroup(
@@ -132,6 +132,7 @@ useEffect(() => {
           accessToken
         );
         setCurrentGroup(newGroup);
+        queryClient.invalidateQueries(['messages', newGroup.id]);
       } catch (error) {
         console.error('Failed to create chat:', error);
       }
@@ -164,14 +165,14 @@ useEffect(() => {
     }
   };
 
-  const getDisplayName = (email: string) => {
+  const getDisplayName = (email: string): string => {
     return email.split('@')[0];
   };
 
   const getFriendDetails = () => {
     if (!currentGroup || !user) return null;
     const friendEmail = currentGroup.participants.find((email) => email !== user.email);
-    return friends?.find((friend) => friend.email === friendEmail);
+    return friends?.find((friend) => friend.email === friendEmail) || null;
   };
 
   if (friendsLoading || groupsLoading) {
@@ -185,7 +186,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       <Header />
-      <main className="flex-grow max-w-[1400px] mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-4">
+      <main className="flex-grow max-w-[1400px] mt-16 mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-4">
         <aside className="w-full lg:w-80 bg-gray-900 rounded-2xl p-4 shadow-xl border border-gray-800">
           <h2 className="text-xl font-bold text-white mb-4">Friends</h2>
           <div className="max-h-[calc(100vh-200px)] overflow-y-auto space-y-2">
@@ -203,16 +204,18 @@ useEffect(() => {
                   {friend.profile_photo ? (
                     <img
                       src={`http://localhost:8000${friend.profile_photo}`}
-                      alt={friend.username}
+                      alt={friend.username || friend.email}
                       className="w-10 h-10 rounded-full object-cover mr-3 ring-2 ring-indigo-600/20"
                     />
                   ) : (
                     <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center mr-3 ring-2 ring-gray-600/20">
-                      <span className="text-white font-semibold">{friend.username?.charAt(0).toUpperCase()}</span>
+                      <span className="text-white font-semibold">
+                        {(friend.username || friend.email)?.charAt(0).toUpperCase()}
+                      </span>
                     </div>
                   )}
                   <div className="text-left">
-                    <p className="font-semibold">{friend.username}</p>
+                    <p className="font-semibold">{friend.username || getDisplayName(friend.email)}</p>
                     <p className="text-xs text-gray-400 truncate">{friend.email}</p>
                   </div>
                 </button>
@@ -229,17 +232,20 @@ useEffect(() => {
                 {getFriendDetails()?.profile_photo ? (
                   <img
                     src={`http://localhost:8000${getFriendDetails()?.profile_photo}`}
-                    alt={getFriendDetails()?.username}
+                    alt={getFriendDetails()?.username || getFriendDetails()?.email}
                     className="w-12 h-12 rounded-full object-cover mr-3 ring-2 ring-indigo-600/30"
                   />
                 ) : (
                   <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mr-3 ring-2 ring-gray-600/30">
                     <span className="text-white font-semibold">
-                      {getFriendDetails()?.username.charAt(0).toUpperCase()}
+                      {(getFriendDetails()?.username || getFriendDetails()?.email)?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
-                <h2 className="text-2xl font-bold text-white">{getFriendDetails()?.username || getDisplayName(currentGroup.participants.find((email) => email !== user?.email) || '')}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {getFriendDetails()?.username ||
+                    getDisplayName(currentGroup.participants.find((email) => email !== user?.email) || '')}
+                </h2>
               </div>
               <div className="flex-grow overflow-y-auto mb-4 max-h-[calc(100vh-300px)] bg-gray-850 rounded-lg p-4">
                 {messagesLoading ? (
@@ -264,7 +270,7 @@ useEffect(() => {
                           <img
                             src={`http://localhost:8002${msg.media_file}`}
                             alt="Chat image"
-                            className="max-w-full rounded-lg"
+                            className="w-60 h-auto rounded-lg"
                           />
                         )}
                         {msg.message_type === 'video' && (

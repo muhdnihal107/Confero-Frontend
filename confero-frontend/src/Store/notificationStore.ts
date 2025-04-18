@@ -40,15 +40,23 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   addNotification: (notification: Notification) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications], // Add to top
-    }));
+    set((state) => {
+      const alreadyExists = state.notifications.some(
+        (n) => n.id === notification.id
+      );
+      if (alreadyExists) {
+        return {}; // Don't update the state if duplicate
+      }
+      return {
+        notifications: [notification, ...state.notifications],
+      };
+    });
   },
 
   setupWebSocketConnection: (accessToken: string) => {
     const ws = setupWebSocket(accessToken, (notification) => {
-      get().addNotification(notification); // Handle new notification
+      get().addNotification(notification); 
     });
-    set({ ws }); // Store WebSocket instance
+    set({ ws }); 
   },
 }));

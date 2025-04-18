@@ -1,3 +1,5 @@
+// Store/RoomStore.ts
+
 import { create } from 'zustand';
 import { fetchPublicRooms, fetchUserRooms, createRoom, updateRoom, deleteRoom, Room } from '../api/room';
 
