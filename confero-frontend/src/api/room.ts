@@ -13,7 +13,7 @@ export interface Room {
   description?: string;
   visibility: 'public' | 'private';
   invited_users: string[];
-  thumbnail?: string;
+  thumbnail?: File | null;
   participants: string[];
   created_at: string;
   updated_at: string;
@@ -138,6 +138,7 @@ export const joinRoom = async (room_id: number): Promise<{ message: string }> =>
 
 export const createRoom = async (roomData: Partial<Room> | FormData): Promise<Room> => {
   try {
+    console.log(roomData,'pppppppp')
     console.log('Sending request to create room with:', roomData instanceof FormData ? 'FormData' : roomData);
     const config = roomData instanceof FormData
       ? { headers: { 'Content-Type': 'multipart/form-data' } }

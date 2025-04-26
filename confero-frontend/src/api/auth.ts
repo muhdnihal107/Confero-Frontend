@@ -89,6 +89,7 @@ export const updateProfile = async (data: {
     if (data.profile_photo) {
       formData.append("profile_photo", data.profile_photo);
     }
+    console.log(formData,'dddddddddddddd');
     const response = await api.put<ProfileResponse>("profile/", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
