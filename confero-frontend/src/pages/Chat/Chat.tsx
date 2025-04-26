@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { fetchChatGroups, fetchMessages, createChatGroup, sendMessage } from '../api/chat';
-import { fetchFriends } from '../api/auth';
-import { useAuthStore } from '../Store/authStore';
-import { useChatStore } from '../Store/ChatStore';
-import { ChatGroup, Message } from '../api/chat';
-import { ProfileResponse } from '../api/auth';
-import Header from '../components/Header';
-import CreateGroupModal from '../pages/CreateGroupModal'; // Fixed import path
-import GroupDetailsModal from '../pages/GroupDetailsModal'; // Fixed import path
+import { fetchChatGroups, fetchMessages, createChatGroup, sendMessage } from '../../api/chat';
+import { fetchFriends } from '../../api/auth';
+import { useAuthStore } from '../../Store/authStore';
+import { useChatStore } from '../../Store/ChatStore';
+import { ChatGroup, Message } from '../../api/chat';
+import { ProfileResponse } from '../../api/auth';
+import Header from '../../components/Header';
+import CreateGroupModal from './CreateGroupModal'; // Fixed import path
+import GroupDetailsModal from './GroupDetailsModal'; // Fixed import path
 
 const Chat: React.FC = () => {
   const { accessToken, user } = useAuthStore();

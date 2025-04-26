@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useAuthStore } from '../Store/authStore';
-import { updateChatGroup } from '../api/chat';
-import {  ChatGroup } from '../api/chat';
-import { ProfileResponse } from '../api/auth';
+import { useAuthStore } from '../../Store/authStore';
+import { updateChatGroup } from '../../api/chat';
+import {  ChatGroup } from '../../api/chat';
+import { ProfileResponse } from '../../api/auth';
 
 interface GroupDetailsModalProps {
   group: ChatGroup;

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRoomStore } from '../Store/RoomStore';
-import { useAuthStore } from '../Store/authStore';
-import Header from '../components/Header';
+import { useRoomStore } from '../../Store/RoomStore';
+import { useAuthStore } from '../../Store/authStore';
+import Header from '../../components/Header';
 interface RoomFormData {
   name: string;
   description: string;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useAuthStore } from '../Store/authStore';
-import { createChatGroup } from '../api/chat';
-import { ProfileResponse } from '../api/auth';
+import { useAuthStore } from '../../Store/authStore';
+import { createChatGroup } from '../../api/chat';
+import { ProfileResponse } from '../../api/auth';
 
 interface CreateGroupModalProps {
   friends: ProfileResponse[];

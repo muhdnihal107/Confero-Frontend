@@ -1,10 +1,10 @@
 // src/components/Profile.tsx
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "../Store/authStore";
+import { useAuthStore } from "../../Store/authStore";
 import { useMutation } from "@tanstack/react-query";
-import { updateProfile, fetchFriends, Profile,fetchFriendCount } from "../api/auth";
+import { updateProfile, fetchFriends, Profile,fetchFriendCount } from "../../api/auth";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
+import Header from "../../components/Header";
 import { useQuery } from "@tanstack/react-query";
 
 // Rename the component to ProfilePage to avoid conflict with Profile interface

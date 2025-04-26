@@ -1,7 +1,7 @@
 import { useState, ChangeEvent, FormEvent } from "react";
-import { useAuthStore } from "../Store/authStore";
+import { useAuthStore } from "../../Store/authStore";
 import { useMutation } from "@tanstack/react-query";
-import { registerUser } from "../api/auth";
+import { registerUser } from "../../api/auth";
 import { Link, useNavigate } from "react-router-dom";
 
 // Define form data type

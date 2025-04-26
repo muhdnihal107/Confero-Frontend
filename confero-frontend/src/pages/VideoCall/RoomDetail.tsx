@@ -1,9 +1,9 @@
 // src/pages/RoomDetail.tsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRoomDetails, updateRoom, Room, roomInvite } from '../api/room';
-import { fetchFriends } from '../api/auth';
-import { useAuthStore } from '../Store/authStore';
+import { fetchRoomDetails, updateRoom, Room, roomInvite } from '../../api/room';
+import { fetchFriends } from '../../api/auth';
+import { useAuthStore } from '../../Store/authStore';
 interface ProfileResponse {
   user_id: number;
   username: string;

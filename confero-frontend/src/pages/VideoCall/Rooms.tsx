@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useRoomStore } from '../Store/RoomStore';
-import { useAuthStore } from '../Store/authStore';
-import { Room } from '../api/room';
-import Header from '../components/Header';
-import { joinRoom } from '../api/room';
+import { useRoomStore } from '../../Store/RoomStore';
+import { useAuthStore } from '../../Store/authStore';
+import { Room } from '../../api/room';
+import Header from '../../components/Header';
+import { joinRoom } from '../../api/room';
 const API_URL = 'http://localhost:8001'; // Update to 8001 if your backend runs there
 
 const Rooms: React.FC = () => {

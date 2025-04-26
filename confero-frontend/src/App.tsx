@@ -1,23 +1,20 @@
 
 import './App.css'
-import Login from './pages/Login';
+import Login from './pages//Auth/Login';
 import { Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import VerifyEmail from './pages/VerifyEmail';
-import ResetPasswordForm from './pages/ResetPasswordForm';
+import Register from './pages/Auth/Register';
+import Profile from './pages/Users/Profile';
+import VerifyEmail from './pages/Auth/VerifyEmail';
+import ResetPasswordForm from './pages/Auth/ResetPasswordForm';
 import RequestPasswordResetForm from './components/RequestPasswordResetForm';
-import Explore from './pages/Explore';
-import Rooms from './pages/Rooms';
-//import PublicRooms from './pages/PublicRooms';
+import Explore from './pages/Users/Explore';
+import Rooms from './pages/VideoCall/Rooms';
 import Notifications from './pages/Notifications';
-import CreateRoom from './pages/CreateRoom';
-// import VideoCall from './pages/VideoConference';
-// import VideoConference from './pages/VideoConference';
-import RoomDetail from './pages/RoomDetail';
-import VideoCall from './pages/VideoCall';
-import Chat from './pages/Chat';
+import CreateRoom from './pages/VideoCall/CreateRoom';
+import RoomDetail from './pages/VideoCall/RoomDetail';
+import VideoCall from './pages/VideoCall/VideoCall';
+import Chat from './pages/Chat/Chat';
 
 function App() {
 

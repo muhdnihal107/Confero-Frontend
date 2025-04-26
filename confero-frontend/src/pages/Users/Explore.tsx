@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { sendFriendRequest, fetchFriends, fetchStrangers,fetchFriendCount } from "../api/auth";
+import { sendFriendRequest, fetchFriends, fetchStrangers,fetchFriendCount } from "../../api/auth";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../Store/authStore";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import { useAuthStore } from "../../Store/authStore";
+import Header from "../../components/Header";
+import Footer from "../../components/Footer";
 
 const Explore: React.FC = () => {
   const { accessToken } = useAuthStore();

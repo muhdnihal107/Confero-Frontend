@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { verifyEmail } from "../api/auth";
+import { verifyEmail } from "../../api/auth";
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
