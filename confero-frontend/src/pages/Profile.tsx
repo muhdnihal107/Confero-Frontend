@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../Store/authStore";
 import { useMutation } from "@tanstack/react-query";
-import { updateProfile, fetchFriends, Profile } from "../api/auth";
+import { updateProfile, fetchFriends, Profile,fetchFriendCount } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import { useQuery } from "@tanstack/react-query";
 
 // Rename the component to ProfilePage to avoid conflict with Profile interface
 const ProfilePage: React.FC = () => {
@@ -23,6 +24,12 @@ const ProfilePage: React.FC = () => {
   const [friends, setFriends] = useState<Profile[]>([]);
   const [friendsLoading, setFriendsLoading] = useState<boolean>(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
+
+  const { data: friendCount, isLoading: isFriendCountLoading } = useQuery({
+    queryKey: ["friendCount"],
+    queryFn: fetchFriendCount,
+  });
+
 
   useEffect(() => {
     fetchProfileData();
@@ -88,6 +95,10 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleMessageClick = () => {
+    navigate(`/chat/`);
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     profileMutation.mutate({
@@ -105,7 +116,7 @@ const ProfilePage: React.FC = () => {
     return <p className="text-center text-white text-lg animate-pulse">Loading profile...</p>;
   }
   if (errorProfile) {
-    return <p className="text-center text-red-400 text-lg">Error: {errorProfile}</p>;
+    navigate('/login');
   }
   if (!user) {
     navigate("/login");
@@ -115,8 +126,8 @@ const ProfilePage: React.FC = () => {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-900/80 pt-20 pb-12 px-6">
-        <div className="bg-gray-800/90 backdrop-blur-md shadow-xl rounded-xl p-8 w-full max-w-3xl mx-auto border border-gray-700">
+      <div className="min-h-screen bg-[#030103a8] pt-20 pb-12 px-6">
+        <div className="bg-gray-900 backdrop-blur-md shadow-xl rounded-xl p-8 w-full max-w-3xl mx-auto border border-gray-700">
           {/* Profile Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
@@ -140,9 +151,13 @@ const ProfilePage: React.FC = () => {
                   {user.username || user.email.split("@")[0]}
                 </h2>
                 <div className="flex space-x-6 mt-2 text-gray-400">
-                  <p>0 Posts</p>
-                  <p>0 Followers</p>
-                  <p>0 Following</p>
+                {isFriendCountLoading ? (
+                <span className="text-gray-400">...</span>
+              ) : (
+                <span className="text-indigo-400 font-semibold">
+                  {friendCount?.friend_count || 0} {friendCount?.friend_count === 1 ? "Friend" : "Friends"}
+                </span>
+              )}
                 </div>
                 <p className="mt-2 text-gray-300">{user.email}</p>
                 {user.phone_number && (
@@ -252,41 +267,39 @@ const ProfilePage: React.FC = () => {
               <p className="text-red-400 text-center">Error: {friendsError}</p>
             ) : friends.length > 0 ? (
               <div className="space-y-4">
-                {friends.map((friend) => (
-                  <div key={friend.user_id} className="flex items-center space-x-4 bg-gray-700/50 p-3 rounded-lg">
-                    <div className="w-12 h-12 rounded-full overflow-hidden">
+                 {friends.map((friend, index) => (
+                  <article
+                    key={index}
+                    className="bg-gray-900 rounded-2xl p-4 shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-800 hover:border-indigo-600"
+                  >
+                    <div className="flex items-center space-x-4">
                       {friend.profile_photo ? (
                         <img
                           src={`http://localhost:8000${friend.profile_photo}`}
-                          alt={friend.username || "Friend"}
-                          className="w-full h-full object-cover"
+                          alt={friend.username || "Profile"}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-600/20"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-600 flex items-center justify-center">
-                          <span className="text-gray-400 text-sm">
-                            {friend.username?.charAt(0)?.toUpperCase() || "F"}
+                        <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center ring-2 ring-gray-700/50">
+                          <span className="text-gray-300 text-xl font-bold">
+                            {friend.username?.charAt(0)?.toUpperCase() || "A"}
                           </span>
                         </div>
                       )}
-                    </div>
-                    <p className="text-gray-300">{friend.username || "Unknown"}</p>
-                    <button className="ml-auto text-gray-400 hover:text-gray-200 transition-colors duration-200">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
+                      <div className="flex-grow">
+                        <h4 className="text-lg font-semibold text-white truncate">
+                          {friend.username || "Anonymous"}
+                        </h4>
+                        <p className="text-gray-400 text-sm truncate">{friend.email}</p>
+                      </div>
+                      <button
+                        onClick={handleMessageClick}
+                        className="bg-gradient-to-r from-green-600 to-teal-600 text-white py-1.5 px-4 rounded-full hover:from-green-700 hover:to-teal-700 transition-all duration-300 font-semibold shadow-md"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M6 12h12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                        Message
+                      </button>
+                    </div>
+                  </article>
                 ))}
               </div>
             ) : (

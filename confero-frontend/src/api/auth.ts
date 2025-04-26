@@ -103,7 +103,9 @@ export const updateProfile = async (data: {
 //-----------------------------------------------------------------------------------------
 export const sendFriendRequest = async (user_id: number) => {
   try {
+    console.log(user_id);
     const response = await api.post("/friend-request/", { receiver_id : user_id });
+    console.log(response.data);
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
@@ -179,5 +181,27 @@ export const fetchFriends = async (): Promise<ProfileResponse[]> => {
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || "Failed to fetch all profiles");
+  }
+};
+
+
+export const fetchStrangers = async (): Promise<ProfileResponse[]> => {
+  try {
+    const response = await api.get<ProfileResponse[]>("fetch-strangers/");
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to fetch all profiles");
+  }
+};
+
+
+export const fetchFriendCount = async (): Promise<{ friend_count: number }> => {
+  try {
+    const response = await api.get<{ friend_count: number }>("/friend-count/");
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || "Failed to fetch friend count");
   }
 };

@@ -53,7 +53,7 @@ const Rooms: React.FC = () => {
   const handleRoomLeave = () => setSelectedRoom(null);
 
   return (
-    <div className="relative w-full min-h-screen bg-gradient-to-b from-[#03010392] to-[#1a1625] text-white overflow-hidden">
+    <div className="relative w-full min-h-screen bg-[#030103a8] text-white overflow-hidden">
       <Header/>
       <div className="flex flex-row min-h-screen pt-24 px-6 sm:px-12 gap-8">
         {/* Sidebar */}

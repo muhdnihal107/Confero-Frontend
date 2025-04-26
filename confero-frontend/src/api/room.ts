@@ -216,7 +216,7 @@ export const connectToRoomWebSocket = (
         );
         options.onClose?.(event);
 
-        if (reconnectAttempts < maxReconnectAttempts && event.code !== 1000) {
+        if (reconnectAttempts < maxReconnectAttempts && event.code !== 1000 && event.code !== 1008) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
           console.log(
             `Reconnecting to room ${roomId} in ${delay}ms (attempt ${reconnectAttempts + 1})`
@@ -224,8 +224,11 @@ export const connectToRoomWebSocket = (
           reconnectAttempts++;
           setTimeout(connect, delay);
         } else if (event.code !== 1000) {
-          console.error(`Max reconnect attempts (${maxReconnectAttempts}) reached for room ${roomId}`);
-        }
+          console.error(
+            `Stopped reconnecting to room ${roomId}: ${
+              event.code === 1008 ? `Non-recoverable error (${event.reason})` : `Max attempts reached`
+            }`
+          );          }
       };
     } catch (error) {
       console.error(`Failed to initialize WebSocket for room ${roomId}:`, error);

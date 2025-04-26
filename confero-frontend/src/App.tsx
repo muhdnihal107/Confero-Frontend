@@ -35,7 +35,6 @@ function App() {
       <Route path="/explore" element={<Explore />} />
       <Route path="/room" element={<Rooms />} />
       <Route path="/create-room" element={<CreateRoom />} />
-      {/* <Route path="/publicroom" element={<PublicRooms />} /> */}
       <Route path="/notification" element={<Notifications />} />
       <Route path="/room/:room_id" element={<RoomDetail />} />
       <Route path="/video-call/:room_id" element={<VideoCall />} />

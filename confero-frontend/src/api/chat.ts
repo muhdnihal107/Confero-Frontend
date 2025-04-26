@@ -76,6 +76,27 @@ export const createChatGroup = async (data: { is_group_chat: boolean; participan
   }
 };
 
+
+
+export const updateChatGroup = async (
+  groupId: string,
+  data: { name?: string; participants?: string[] },
+  token: string
+): Promise<ChatGroup> => {
+  try {
+    const response = await api.patch<ChatGroup>(`/groups/${groupId}/`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ detail?: string }>;
+    throw new Error(axiosError.response?.data?.detail || 'Failed to update chat group');
+  }
+};
+
+
+
+
 export const sendMessage = async (data: { chat_group: string; message_type: 'text' | 'image' | 'video'; content?: string; media_file?: File }, token: string): Promise<Message> => {
   try {
     const formData = new FormData();
@@ -94,4 +115,5 @@ export const sendMessage = async (data: { chat_group: string; message_type: 'tex
     const axiosError = error as AxiosError<{ detail?: string }>;
     throw new Error(axiosError.response?.data?.detail || 'Failed to send message');
   }
+
 };
