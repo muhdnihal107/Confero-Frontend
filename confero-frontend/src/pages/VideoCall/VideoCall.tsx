@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import SimplePeer, { Instance as SimplePeerInstance, SignalData } from 'simple-peer';
-import { fetchRoomDetails, Room, WebRTCSignal, connectToRoomWebSocket, closeWebSocket } from '../../api/room';
+import { fetchRoomDetails, Room, connectToRoomWebSocket, closeWebSocket } from '../../api/room';
 import { useAuthStore } from '../../Store/authStore';
 
 // Interfaces
@@ -10,6 +10,7 @@ interface PeerConnection {
   peer: SimplePeerInstance;
   userEmail: string;
   stream?: MediaStream;
+  isScreenShare?: boolean;
 }
 
 interface ChatMessage {
@@ -18,20 +19,43 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface ScreenShareState {
+  sender: string;
+  isSharing: boolean;
+}
+
+interface WebRTCSignal {
+  type: 'webrtc_offer' | 'webrtc_answer' | 'ice_candidate' | 'chat_message' | 'screen_share_state';
+  data: RTCSessionDescriptionInit | RTCIceCandidateInit | string | { isSharing: boolean };
+  sender: string;
+  target?: string;
+  timestamp?: string;
+}
+
+interface EnlargedVideo {
+  userEmail: string;
+  isScreenShare: boolean;
+}
+
 const VideoCall: React.FC = () => {
   const { room_id } = useParams<{ room_id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const userEmail = user?.email || '';
   const videoRef = useRef<HTMLVideoElement>(null);
+  const screenShareVideoRef = useRef<HTMLVideoElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [peers, setPeers] = useState<PeerConnection[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [screenShareStates, setScreenShareStates] = useState<Map<string, boolean>>(new Map());
+  const [enlargedVideo, setEnlargedVideo] = useState<EnlargedVideo | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<Map<string, SimplePeerInstance>>(new Map());
   const isMountedRef = useRef(true);
@@ -54,9 +78,7 @@ const VideoCall: React.FC = () => {
         });
         if (isMountedRef.current) {
           setStream(mediaStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-          }
+
         }
       } catch (err) {
         console.error('Error accessing media devices:', err);
@@ -105,6 +127,11 @@ const VideoCall: React.FC = () => {
           } else if (data.event === 'user-disconnected') {
             console.log(`[${userEmail}] User disconnected: ${data.userEmail}`);
             setPeers((prev) => prev.filter((p) => p.userEmail !== data.userEmail));
+            setScreenShareStates((prev) => {
+              const newMap = new Map(prev);
+              newMap.delete(data.userEmail);
+              return newMap;
+            });
             const peer = peersRef.current.get(data.userEmail);
             if (peer) {
               peer.destroy();
@@ -114,7 +141,7 @@ const VideoCall: React.FC = () => {
             const signalData = data as WebRTCSignal;
             console.log(`[${userEmail}] WebRTC signal from ${signalData.sender}: ${signalData.type}`);
             if (signalData.type === 'chat_message') {
-              if (isMountedRef.current) {
+              if (isMountedRef.current && typeof signalData.data === 'string') {
                 setChatMessages((prev) => [
                   ...prev,
                   {
@@ -124,6 +151,18 @@ const VideoCall: React.FC = () => {
                   },
                 ]);
               }
+            } else if (signalData.type === 'screen_share_state') {
+              if (
+                isMountedRef.current &&
+                typeof signalData.data === 'object' &&
+                'isSharing' in signalData.data
+              ) {
+                setScreenShareStates((prev) => {
+                  const newMap = new Map(prev);
+                  newMap.set(signalData.sender, signalData.data.isSharing);
+                  return newMap;
+                });
+              }
             } else {
               let peer = peersRef.current.get(signalData.sender);
               if (!peer) {
@@ -131,7 +170,10 @@ const VideoCall: React.FC = () => {
                 peer = addPeer(signalData.sender, ws, stream);
               }
               try {
-                if (signalData.type === 'webrtc_offer' || signalData.type === 'webrtc_answer') {
+                if (
+                  signalData.type === 'webrtc_offer' ||
+                  signalData.type === 'webrtc_answer'
+                ) {
                   peer.signal(signalData.data as RTCSessionDescriptionInit);
                 } else if (signalData.type === 'ice_candidate') {
                   peer.signal({ candidate: signalData.data as RTCIceCandidateInit });
@@ -177,6 +219,104 @@ const VideoCall: React.FC = () => {
     };
   }, [room_id, userEmail, stream]);
 
+  // Handle video click to enlarge or minimize
+  const handleVideoClick = (userEmail: string, isScreenShare: boolean) => {
+    if (
+      enlargedVideo &&
+      enlargedVideo.userEmail === userEmail &&
+      enlargedVideo.isScreenShare === isScreenShare
+    ) {
+      setEnlargedVideo(null); // Minimize if clicking the same video
+    } else {
+      setEnlargedVideo({ userEmail, isScreenShare }); // Enlarge the clicked video
+    }
+  };
+
+  // Toggle screen sharing
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      // Stop screen sharing
+      if (screenStream) {
+        screenStream.getTracks().forEach((track) => track.stop());
+        setScreenStream(null);
+      }
+      setIsScreenSharing(false);
+      // Notify others
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'screen_share_state',
+            data: { isSharing: false },
+            sender: userEmail,
+          } as WebRTCSignal)
+        );
+      }
+      // Restore camera stream in peer connections
+      if (stream) {
+        peersRef.current.forEach((peer, targetEmail) => {
+          const senders = (peer as any)._pc.getSenders() as RTCRtpSender[];
+          const videoSender = senders.find((sender) => sender.track?.kind === 'video');
+          if (videoSender && stream.getVideoTracks()[0]) {
+            videoSender.replaceTrack(stream.getVideoTracks()[0]).catch((err) => {
+              console.error(`[${userEmail}] Error restoring camera track for ${targetEmail}:`, err);
+            });
+            console.log(`[${userEmail}] Restored camera track for ${targetEmail}`);
+          }
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }
+      // Clear enlarged video if it was the screen share
+      if (enlargedVideo?.isScreenShare && enlargedVideo.userEmail === userEmail) {
+        setEnlargedVideo(null);
+      }
+    } else {
+      // Start screen sharing
+      try {
+        const screen = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+        setScreenStream(screen);
+        setIsScreenSharing(true);
+        if (screenShareVideoRef.current) {
+          screenShareVideoRef.current.srcObject = screen;
+        }
+        // Notify others
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({
+              type: 'screen_share_state',
+              data: { isSharing: true },
+              sender: userEmail,
+            } as WebRTCSignal)
+          );
+        }
+        // Replace video track in peer connections
+        peersRef.current.forEach((peer, targetEmail) => {
+          const senders = (peer as any)._pc.getSenders() as RTCRtpSender[];
+          const videoSender = senders.find((sender) => sender.track?.kind === 'video');
+          if (videoSender && screen.getVideoTracks()[0]) {
+            videoSender.replaceTrack(screen.getVideoTracks()[0]).catch((err) => {
+              console.error(`[${userEmail}] Error replacing with screen track for ${targetEmail}:`, err);
+            });
+            console.log(`[${userEmail}] Replaced with screen track for ${targetEmail}`);
+          }
+        });
+        // Stop screen share when user clicks "Stop sharing"
+        screen.getVideoTracks()[0].onended = () => {
+          if (isMountedRef.current) {
+            toggleScreenShare();
+          }
+        };
+      } catch (err) {
+        console.error('Error starting screen share:', err);
+        setConnectionError('Failed to start screen sharing');
+      }
+    }
+  };
+
   // Create a new peer connection (initiator)
   const createPeer = (targetEmail: string, ws: WebSocket, stream: MediaStream) => {
     console.log(`[${userEmail}] Creating peer for ${targetEmail} (initiator)`);
@@ -185,9 +325,7 @@ const VideoCall: React.FC = () => {
       trickle: false,
       stream,
       config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-        ],
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
       },
     });
 
@@ -218,7 +356,12 @@ const VideoCall: React.FC = () => {
           }
           return [
             ...prev.filter((p) => p.userEmail !== targetEmail),
-            { peer, userEmail: targetEmail, stream: remoteStream },
+            {
+              peer,
+              userEmail: targetEmail,
+              stream: remoteStream,
+              isScreenShare: remoteStream.getVideoTracks()[0]?.label.includes('screen'),
+            },
           ];
         });
       }
@@ -232,6 +375,9 @@ const VideoCall: React.FC = () => {
       console.log(`[${userEmail}] Peer connection closed for ${targetEmail}`);
       peersRef.current.delete(targetEmail);
       setPeers((prev) => prev.filter((p) => p.userEmail !== targetEmail));
+      if (enlargedVideo?.userEmail === targetEmail) {
+        setEnlargedVideo(null);
+      }
     });
 
     peersRef.current.set(targetEmail, peer);
@@ -245,9 +391,7 @@ const VideoCall: React.FC = () => {
       trickle: false,
       stream,
       config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-        ],
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
       },
     });
 
@@ -278,7 +422,12 @@ const VideoCall: React.FC = () => {
           }
           return [
             ...prev.filter((p) => p.userEmail !== senderEmail),
-            { peer, userEmail: senderEmail, stream: remoteStream },
+            {
+              peer,
+              userEmail: senderEmail,
+              stream: remoteStream,
+              isScreenShare: remoteStream.getVideoTracks()[0]?.label.includes('screen'),
+            },
           ];
         });
       }
@@ -292,6 +441,9 @@ const VideoCall: React.FC = () => {
       console.log(`[${userEmail}] Peer connection closed for ${senderEmail}`);
       peersRef.current.delete(senderEmail);
       setPeers((prev) => prev.filter((p) => p.userEmail !== senderEmail));
+      if (enlargedVideo?.userEmail === senderEmail) {
+        setEnlargedVideo(null);
+      }
     });
 
     peersRef.current.set(senderEmail, peer);
@@ -323,16 +475,20 @@ const VideoCall: React.FC = () => {
   // Send chat message
   const sendChatMessage = () => {
     if (chatInput.trim() && wsRef.current?.readyState === WebSocket.OPEN) {
-      const message = {
+      const message: WebRTCSignal = {
         type: 'chat_message',
         data: chatInput,
         sender: userEmail,
         timestamp: new Date().toISOString(),
-      } as WebRTCSignal;
+      };
       wsRef.current.send(JSON.stringify(message));
       setChatMessages((prev) => [
         ...prev,
-        { sender: userEmail, content: chatInput, timestamp: message.timestamp },
+        {
+          sender: userEmail,
+          content: chatInput,
+          timestamp: message.timestamp!,
+        },
       ]);
       setChatInput('');
     }
@@ -353,11 +509,17 @@ const VideoCall: React.FC = () => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
     }
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+    }
     peersRef.current.forEach((peer) => peer.destroy());
     peersRef.current.clear();
     setPeers([]);
     setStream(null);
-    navigate('/room'); // Redirect to rooms list or desired route
+    setScreenStream(null);
+    setIsScreenSharing(false);
+    setEnlargedVideo(null);
+    navigate('/room');
   };
 
   if (isLoading) {
@@ -377,7 +539,7 @@ const VideoCall: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col">
+    <div className="min-h-screen bg-[#030103a8] text-white flex flex-col">
       {/* Header */}
       <header className="p-4 bg-gray-800/80 shadow-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -405,77 +567,498 @@ const VideoCall: React.FC = () => {
               {connectionError}
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Local Video */}
-            <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                className="w-full rounded-lg aspect-video object-cover"
-              />
-              <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                <span className="text-sm font-medium">{userEmail} (You)</span>
-              </div>
-              <div className="flex justify-center gap-3 mt-3">
-                <button
-                  onClick={toggleAudio}
-                  className={`p-2 rounded-full text-white transition-all duration-300 ${
-                    isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6" />
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Small Videos Column (when a video is enlarged) */}
+            {enlargedVideo && (
+              <div className="flex flex-col gap-2 w-full sm:w-32 md:w-40">
+                {/* Local Camera Video */}
+                <div className="relative bg-[#00000066] backdrop-blur-md rounded-xl p-2 shadow-md">
+                  <video
+                    ref={(el) => {
+                      if (el && stream) {
+                        console.log(`[${userEmail}] Assigning local camera stream in small column`);
+                        el.srcObject = stream;
+                      }
+                    }}
+                    autoPlay
+                    muted
+                    className="w-full rounded-lg aspect-video object-contain bg-black"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-[#00000066] backdrop-blur-md px-1 py-0.5 rounded-md">
+                    <span className="text-xs font-medium">{userEmail} (You - Camera)</span>
+                  </div>
+                  <button
+                    onClick={() => handleVideoClick(userEmail, false)}
+                    className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                    title="Enlarge"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                      />
                     </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  onClick={toggleVideo}
-                  className={`p-2 rounded-full text-white transition-all duration-300 ${
-                    !isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                  title={isVideoOn ? 'Video Off' : 'Video On'}
-                >
-                  {isVideoOn ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Remote Videos */}
-            {peers.map((peer) => (
-              <div
-                key={peer.userEmail}
-                className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300"
-              >
-                <video
-                  autoPlay
-                  ref={(el) => {
-                    if (el && peer.stream) {
-                      console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
-                      el.srcObject = peer.stream;
-                    }
-                  }}
-                  className="w-full rounded-lg aspect-video object-cover"
-                />
-                <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                  <span className="text-sm font-medium">{peer.userEmail}</span>
+                  </button>
                 </div>
+
+                {/* Local Screen Share (if active) */}
+                {isScreenSharing && (
+                  <div className="relative bg-gray-800/80 rounded-xl p-2 shadow-md">
+                    <video
+                      ref={(el) => {
+                        if (el && screenStream) {
+                          console.log(`[${userEmail}] Assigning local screen stream in small column`);
+                          el.srcObject = screenStream;
+                        }
+                      }}
+                      autoPlay
+                      muted
+                      className="w-full rounded-lg aspect-video object-contain bg-black"
+                    />
+                    <div className="absolute bottom-2 left-2 bg-gray-900/70 px-1 py-0.5 rounded-md">
+                      <span className="text-xs font-medium">{userEmail} (You - Screen)</span>
+                    </div>
+                    <button
+                      onClick={() => handleVideoClick(userEmail, true)}
+                      className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                      title="Enlarge"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Remote Videos */}
+                {peers.map((peer) => (
+                  <div
+                    key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
+                    className="relative bg-gray-800/80 rounded-xl p-2 shadow-md"
+                  >
+                    <video
+                      autoPlay
+                      ref={(el) => {
+                        if (el && peer.stream) {
+                          console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                          el.srcObject = peer.stream;
+                        }
+                      }}
+                      className="w-full rounded-lg aspect-video object-contain bg-black"
+                    />
+                    <div className="absolute bottom-2 left-2 bg-gray-900/70 px-1 py-0.5 rounded-md">
+                      <span className="text-xs font-medium">
+                        {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
+                      className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                      title="Enlarge"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Main Video Area */}
+            <div className="flex-1">
+              {enlargedVideo ? (
+                // Enlarged Video
+                <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg">
+                  {enlargedVideo.userEmail === userEmail && !enlargedVideo.isScreenShare ? (
+                    <>
+                      <video
+                        ref={(el) => {
+                          if (el && stream) {
+                            console.log(`[${userEmail}] Assigning local camera stream in enlarged mode`);
+                            el.srcObject = stream;
+                          }
+                        }}
+                        autoPlay
+                        muted
+                        className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
+                      />
+                      <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        <button
+                          onClick={toggleAudio}
+                          className={`p-2 rounded-full text-white transition-all duration-300 ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                          title={isMuted ? 'Unmute' : 'Mute'}
+                        >
+                          {isMuted ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
+                              />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={toggleVideo}
+                          className={`p-2 rounded-full text-white transition-all duration-300 ${!isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                          title={isVideoOn ? 'Video Off' : 'Video On'}
+                        >
+                          {isVideoOn ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={toggleScreenShare}
+                          className={`p-2 rounded-full text-white transition-all duration-300 ${isScreenSharing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                          title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+                        >
+                          {isScreenSharing ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                        <span className="text-sm font-medium">{userEmail} (You - Camera)</span>
+                      </div>
+                      <button
+                        onClick={() => handleVideoClick(userEmail, false)}
+                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                        title="Minimize"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  ) : enlargedVideo.userEmail === userEmail && enlargedVideo.isScreenShare ? (
+                    <>
+                      <video
+                        ref={(el) => {
+                          if (el && screenStream) {
+                            console.log(`[${userEmail}] Assigning local screen stream in enlarged mode`);
+                            el.srcObject = screenStream;
+                          }
+                        }}
+                        autoPlay
+                        muted
+                        className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
+                      />
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                        <span className="text-sm font-medium">{userEmail} (You - Screen)</span>
+                      </div>
+                      <button
+                        onClick={() => handleVideoClick(userEmail, true)}
+                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                        title="Minimize"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {peers
+                        .filter(
+                          (peer) =>
+                            peer.userEmail === enlargedVideo.userEmail &&
+                            (peer.isScreenShare || false) === enlargedVideo.isScreenShare
+                        )
+                        .map((peer) => (
+                          <div key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}>
+                            <video
+                              autoPlay
+                              ref={(el) => {
+                                if (el && peer.stream) {
+                                  console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                                  el.srcObject = peer.stream;
+                                }
+                              }}
+                              className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
+                            />
+                            <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                              <span className="text-sm font-medium">
+                                {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleVideoClick(peer.userEmail, peer.isScreenShare || false)
+                              }
+                              className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                              title="Minimize"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                    </>
+                  )}
+                </div>
+              ) : (
+                // Default Grid (no enlarged video)
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Local Camera Video */}
+                  <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <video
+                      ref={(el) => {
+                        if (el && stream) {
+                          console.log(`[${userEmail}] Assigning local camera stream in grid`);
+                          el.srcObject = stream;
+                        }
+                      }}
+                      autoPlay
+                      muted
+                      className="w-full rounded-lg aspect-video object-contain bg-black"
+                    />
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                      <button
+                        onClick={toggleAudio}
+                        className={`p-2 rounded-full text-white transition-all duration-300 ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                          }`}
+                        title={isMuted ? 'Unmute' : 'Mute'}
+                      >
+                        {isMuted ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
+                            />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={toggleVideo}
+                        className={`p-2 rounded-full text-white transition-all duration-300 ${!isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                          }`}
+                        title={isVideoOn ? 'Video Off' : 'Video On'}
+                      >
+                        {isVideoOn ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={toggleScreenShare}
+                        className={`p-2 rounded-full text-white transition-all duration-300 ${isScreenSharing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                          }`}
+                        title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+                      >
+                        {isScreenSharing ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                      <span className="text-sm font-medium">{userEmail} (You - Camera)</span>
+                    </div>
+                    <button
+                      onClick={() => handleVideoClick(userEmail, false)}
+                      className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                      title="Enlarge"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Local Screen Share (if active) */}
+                  {isScreenSharing && (
+                    <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                      <video
+                        ref={(el) => {
+                          if (el && screenStream) {
+                            console.log(`[${userEmail}] Assigning local screen stream in grid`);
+                            el.srcObject = screenStream;
+                          }
+                        }}
+                        autoPlay
+                        muted
+                        className="w-full rounded-lg aspect-video object-contain bg-black"
+                      />
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                        <span className="text-sm font-medium">{userEmail} (You - Screen)</span>
+                      </div>
+                      <button
+                        onClick={() => handleVideoClick(userEmail, true)}
+                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                        title="Enlarge"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Remote Videos */}
+                  {peers.map((peer) => (
+                    <div
+                      key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
+                      className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300"
+                    >
+                      <video
+                        autoPlay
+                        ref={(el) => {
+                          if (el && peer.stream) {
+                            console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                            el.srcObject = peer.stream;
+                          }
+                        }}
+                        className="w-full rounded-lg aspect-video object-contain bg-black"
+                      />
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
+                        <span className="text-sm font-medium">
+                          {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
+                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                        title="Enlarge"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -491,13 +1074,12 @@ const VideoCall: React.FC = () => {
               {chatMessages.map((msg, index) => (
                 <div
                   key={index}
-                  className={`mb-3 p-2 rounded-lg ${
-                    msg.sender === userEmail
+                  className={`mb-3 p-2 rounded-lg ${msg.sender === userEmail
                       ? 'bg-indigo-600/50 text-right ml-auto'
                       : 'bg-gray-700/50 text-left mr-auto'
-                  } max-w-[80%] animate-fade-in`}
+                    } max-w-[80%] animate-fade-in`}
                 >
-                  <p className="text-sm font-medium">{msg.sender}</p>
+                  <p className="text-sm font-medium">{msg.sender.split("@")[0]}</p>
                   <p className="text-sm">{msg.content}</p>
                   <p className="text-xs text-gray-400">
                     {new Date(msg.timestamp).toLocaleTimeString()}
@@ -530,9 +1112,12 @@ const VideoCall: React.FC = () => {
               {room.participants.map((participant) => (
                 <li
                   key={participant}
-                  className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700/70 transition-all duration-200 text-sm"
+                  className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700/70 transition-all duration-200 text-sm flex items-center gap-2"
                 >
-                  {participant}
+                  <span>{participant}</span>
+                  {screenShareStates.get(participant) && (
+                    <span className="text-xs text-green-400">(Sharing Screen)</span>
+                  )}
                 </li>
               ))}
             </ul>

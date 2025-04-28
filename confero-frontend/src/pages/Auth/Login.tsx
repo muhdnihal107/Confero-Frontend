@@ -62,7 +62,6 @@ const Login: React.FC = () => {
 
 const handleSuccess = async (credentialResponse: any) => {
   const { credential } = credentialResponse;
-  console.log(credential, 'iii'); // Debugging: Log the credential
   try {
     // Send the Google credential to your backend for verification
     const res = await fetch('http://localhost:8000/api/auth/google/', {

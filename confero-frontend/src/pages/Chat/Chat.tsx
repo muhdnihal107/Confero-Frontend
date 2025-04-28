@@ -196,19 +196,19 @@ const Chat: React.FC = () => {
   <Header />
   <main className="flex-grow max-w-7xl mt-12 mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col lg:flex-row gap-6">
     {/* Sidebar */}
-    <aside className="w-full lg:w-80 bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-700/50">
-      <div className="flex justify-between items-center mb-6">
+    <aside className="w-full lg:w-80 bg-[#00000066] backdrop-blur-md rounded-2xl p-4 shadow-xl border border-gray-700/50">
+      <div className="flex justify-between items-center mb-2">
         <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
           Chats
         </h2>
         <button
           onClick={() => setShowGroupModal(true)}
-          className="px-4 py-2 bg-indigo-600 rounded-lg text-sm font-semibold text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all duration-200"
+          className="px-4 py-2 bg-[#205b11] rounded-lg text-sm font-semibold text-[#e5e4e4] hover:bg-[#0d3802] focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all duration-200"
         >
           Create Group
         </button>
       </div>
-      <div className="max-h-[calc(100vh-300px)] overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-indigo-500 scrollbar-track-gray-800/40">
+      <div className="max-h-[calc(100vh-200px)] overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-indigo-500 scrollbar-track-gray-800/40">
         {/* Group Chats Section */}
         {groupChats.length > 0 && (
           <>
@@ -309,7 +309,7 @@ const Chat: React.FC = () => {
     </aside>
 
     {/* Chat Section */}
-    <section className="flex-grow bg-gray-800/30 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-700/50 flex flex-col">
+    <section className="flex-grow bg-[#00000066] backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-700/50 flex flex-col">
       {currentGroup ? (
         <>
           {/* Chat Header */}
@@ -354,7 +354,7 @@ const Chat: React.FC = () => {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-grow overflow-y-auto mb-6 max-h-[calc(100vh-400px)] bg-gray-900/20 rounded-xl p-4 scrollbar-thin scrollbar-thumb-indigo-500 scrollbar-track-gray-800/40">
+          <div className="flex-grow overflow-y-auto mb-6 max-h-[calc(100vh-350px)] bg-gray-900/20 rounded-xl p-4 scrollbar-thin scrollbar-thumb-indigo-500 scrollbar-track-gray-800/40">
             {messagesLoading ? (
               <p className="text-gray-400 text-center text-sm animate-pulse">Loading messages...</p>
             ) : messages.length === 0 ? (

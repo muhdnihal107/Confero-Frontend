@@ -17,6 +17,7 @@ export interface Room {
   participants: string[];
   created_at: string;
   updated_at: string;
+  is_live: Boolean;
 }
 
 export interface WebRTCSignal {
@@ -138,12 +139,11 @@ export const joinRoom = async (room_id: number): Promise<{ message: string }> =>
 
 export const createRoom = async (roomData: Partial<Room> | FormData): Promise<Room> => {
   try {
-    console.log(roomData,'pppppppp')
     console.log('Sending request to create room with:', roomData instanceof FormData ? 'FormData' : roomData);
     const config = roomData instanceof FormData
       ? { headers: { 'Content-Type': 'multipart/form-data' } }
       : { headers: { 'Content-Type': 'application/json' } };
-    const response = await api.post('/rooms/', roomData, config);
+    const response = await api.post('room-create/', roomData, config);
     return response.data;
   } catch (error) {
     const apiError = error as ApiError;
@@ -154,7 +154,7 @@ export const createRoom = async (roomData: Partial<Room> | FormData): Promise<Ro
 
 export const updateRoom = async (roomId: number, roomData: Partial<Room>): Promise<Room> => {
   try {
-    const response = await api.put(`/update-room/${roomId}/`, roomData);
+    const response = await api.put(`/update-room/${roomId}`, roomData);
     return response.data;
   } catch (error) {
     const apiError = error as ApiError;

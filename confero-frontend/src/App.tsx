@@ -15,7 +15,6 @@ import CreateRoom from './pages/VideoCall/CreateRoom';
 import RoomDetail from './pages/VideoCall/RoomDetail';
 import VideoCall from './pages/VideoCall/VideoCall';
 import Chat from './pages/Chat/Chat';
-import RoomCreate from './components/roomCreate';
 
 function App() {
 
@@ -25,7 +24,6 @@ function App() {
       <Route path='/login' element={<Login/>}/>
       <Route path='/register' element={<Register/>}/>
       <Route path='/profile' element={<Profile/>}></Route>
-      <Route path='/roomcreate' element={<RoomCreate/>}/>
 
       <Route path='/' element={<Home/>}/>
       <Route path='/request-password-reset' element={<RequestPasswordResetForm/>}/>
