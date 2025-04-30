@@ -4,6 +4,7 @@ import { useNotificationStore } from "../Store/notificationStore";
 import { clearNotifications, Notification, markAsRead, fetchReadedNotifications } from "../api/notification";
 import { handleFriendRequestAction } from "../api/auth";
 import { acceptRoomInvite } from "../api/room";
+import { useNavigate } from "react-router-dom";
 
 const Notifications: React.FC = () => {
   const { accessToken } = useAuthStore();
@@ -37,6 +38,8 @@ const Notifications: React.FC = () => {
       }
     };
   }, [accessToken, fetchNotifications, setupWebSocketConnection]);
+
+  const navigate = useNavigate();
 
   const handleFriendRequest = async (action: "accept" | "reject", notificationId: string) => {
     try {
@@ -85,6 +88,8 @@ const Notifications: React.FC = () => {
       setTimeout(() => {
         setActionStatus((prev) => ({ ...prev, [notificationId]: "" }));
       }, 3000);
+      navigate(`/room/${friendRequestId}`)
+      
     } catch (error) {
       const err = error as Error;
       setActionStatus((prev) => ({ ...prev, [notificationId]: err.message }));

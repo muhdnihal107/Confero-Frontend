@@ -10,11 +10,12 @@ const API_URL = 'http://localhost:8001';
 const Rooms: React.FC = () => {
   const navigate = useNavigate();
   const { accessToken } = useAuthStore();
-  const { publicRooms, userRooms, fetchPublicRooms, fetchUserRooms } = useRoomStore();
+  const { publicRooms, userRooms, fetchPublicRooms, fetchUserRooms, deleteRoom } = useRoomStore();
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'all' | 'my'>('all'); // Toggle state
+  const [viewMode, setViewMode] = useState<'all' | 'my'>('all');
+  const [deletingRoomId, setDeletingRoomId] = useState<number | null>(null); // Track deleting room
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -38,8 +39,6 @@ const Rooms: React.FC = () => {
 
   // Combine and deduplicate rooms for "All Rooms" view
   const allRooms = [...userRooms, ...publicRooms.filter((pr) => !userRooms.some((ur) => ur.id === pr.id))];
-
-  // Determine which rooms to display based on viewMode
   const displayedRooms = viewMode === 'all' ? allRooms : userRooms;
 
   const handleRoomJoin = async (room_id: number) => {
@@ -49,6 +48,21 @@ const Rooms: React.FC = () => {
     } catch (error) {
       console.error('Error while joining room:', error);
       setError('Failed to join room');
+    }
+  };
+
+  const handleRoomDelete = async (room_id: number) => {
+    try {
+      setDeletingRoomId(room_id); // Disable button for this room
+      await deleteRoom(room_id); // Call RoomStore's deleteRoom action
+      if (selectedRoom?.id === room_id) {
+        setSelectedRoom(null); // Clear selected room if deleted
+      }
+    } catch (error) {
+      console.error('Error while deleting room:', error);
+      setError('Failed to delete room');
+    } finally {
+      setDeletingRoomId(null); // Re-enable button
     }
   };
 
@@ -183,12 +197,32 @@ const Rooms: React.FC = () => {
                     <p className="mt-2 text-sm text-gray-400">
                       Started: {new Date(room.created_at).toLocaleString()}
                     </p>
-                    <button
-                      onClick={() => handleRoomJoin(room.id)}
-                      className="mt-4 w-full px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 ease-in-out"
-                    >
-                      Join
-                    </button>
+                    {viewMode === 'my' ? (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleRoomJoin(room.id)}
+                          className="mt-4 w-1/2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 ease-in-out"
+                          disabled={deletingRoomId === room.id}
+                        >
+                          Join
+                        </button>
+                        <button
+                          onClick={() => handleRoomDelete(room.id)}
+                          className="mt-4 w-1/2 px-4 py-2 rounded-full bg-gradient-to-r from-[#b54040] to-[#e14609] text-white font-medium hover:from-[#ac3a3a] hover:to-[#df3737] transform hover:scale-105 transition-all duration-300 ease-in-out"
+                          disabled={deletingRoomId === room.id}
+                        >
+                          {deletingRoomId === room.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleRoomJoin(room.id)}
+                        className="mt-4 w-full px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-300 ease-in-out"
+                        disabled={deletingRoomId === room.id}
+                      >
+                        Join
+                      </button>
+                    )}
                   </div>
                 ))}
             </div>

@@ -106,6 +106,7 @@ export const roomInvite = async (
   try {
     console.log(`${email}-email--${receiver_id}-receiverID,--${room_id}-roodID`);
     const response = await api.post(`rooms/${room_id}/invite/`, { receiver_id, email });
+    console.log(response.data)
     return response.data;
   } catch (error) {
     const apiError = error as ApiError;
@@ -163,12 +164,12 @@ export const updateRoom = async (roomId: number, roomData: Partial<Room>): Promi
   }
 };
 
-export const deleteRoom = async (roomId: number): Promise<void> => {
+export const deleteRoom = async (room_id: number): Promise<void> => {
   try {
-    await api.delete(`/rooms/${roomId}/`);
+    await api.delete(`/delete-room/${room_id}`);
   } catch (error) {
     const apiError = error as ApiError;
-    console.error(`Error deleting room ${roomId}:`, apiError.message);
+    console.error(`Error deleting room ${room_id}:`, apiError.message);
     throw apiError;
   }
 };

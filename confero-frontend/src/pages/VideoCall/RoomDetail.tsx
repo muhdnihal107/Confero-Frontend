@@ -202,7 +202,7 @@ const RoomDetail: React.FC = () => {
               <div className="flex items-center gap-4 mb-6">
                 {room.thumbnail && (
                   <img
-                    src={`http://localhost:8000${room.thumbnail}`}
+                    src={`http://localhost:8001${room.thumbnail}`}
                     alt={`${room.name} thumbnail`}
                     className="w-16 h-16 rounded-lg object-cover border border-indigo-500/50"
                     onError={(e) => (e.currentTarget.src = '/fallback-thumbnail.jpg')}
