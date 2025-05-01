@@ -120,6 +120,14 @@ const Rooms: React.FC = () => {
             >
               Create Room
             </button>
+            {viewMode === 'my' && (
+                <button
+                  onClick={() => navigate('/schedule-rooms')}
+                  className="px-6 py-3 rounded-full shadow-lg font-semibold text-white bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-700 hover:via-pink-700 hover:to-red-700 transform hover:scale-105 transition-all duration-300 ease-in-out"
+                >
+                  Schedule Room
+                </button>
+              )}
           </div>
 
           {/* Toggle Buttons */}

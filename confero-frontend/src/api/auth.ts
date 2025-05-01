@@ -178,6 +178,7 @@ export const fetchAllProfiles = async (): Promise<ProfileResponse[]> => {
 export const fetchFriends = async (): Promise<ProfileResponse[]> => {
   try {
     const response = await api.get<ProfileResponse[]>("fetch-friends/");
+    console.log(response.data,'fetch friends')
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;

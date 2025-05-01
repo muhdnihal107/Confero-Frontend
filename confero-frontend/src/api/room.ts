@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '../Store/authStore';
+import { ProfileResponse } from './auth';
 
 const API_URL = 'http://localhost:8001/api/';
 const WS_URL = 'ws://localhost:8001';
@@ -30,6 +31,21 @@ export interface WebRTCSignal {
 interface ApiError {
   message: string;
   status?: number;
+}
+
+export interface User {
+  id: number;
+  email: string;
+}
+
+export interface VideoCallSchedule {
+  id: number;
+  room: number;
+  creator_id: number;
+  creator_email: string;
+  participants: ProfileResponse[];
+  scheduled_time: string;
+  created_at: string;
 }
 
 const api = axios.create({
@@ -170,6 +186,39 @@ export const deleteRoom = async (room_id: number): Promise<void> => {
   } catch (error) {
     const apiError = error as ApiError;
     console.error(`Error deleting room ${room_id}:`, apiError.message);
+    throw apiError;
+  }
+};
+
+export const scheduleVideoCall = async (
+  room_id: number,
+  participants: ProfileResponse[],
+  scheduled_time: string
+): Promise<VideoCallSchedule> => {
+  const part = participants.map((p)=>({id:p.user_id,email:p.email}));
+  console.log(part)
+  try {
+    console.log(participants,scheduled_time)
+    const response = await api.post('/schedule-videocall/', {
+      room_id,
+      part,
+      scheduled_time,
+    });
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error('Error scheduling video call:', apiError.message);
+    throw apiError;
+  }
+};
+
+export const fetchScheduledCalls = async (): Promise<VideoCallSchedule[]> => {
+  try {
+    const response = await api.get('/schedule-video-call/');
+    return response.data;
+  } catch (error) {
+    const apiError = error as ApiError;
+    console.error('Error fetching scheduled calls:', apiError.message);
     throw apiError;
   }
 };

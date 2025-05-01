@@ -15,6 +15,7 @@ import CreateRoom from './pages/VideoCall/CreateRoom';
 import RoomDetail from './pages/VideoCall/RoomDetail';
 import VideoCall from './pages/VideoCall/VideoCall';
 import Chat from './pages/Chat/Chat';
+import ScheduleRooms from './pages/VideoCall/ScheduleRooms';
 
 function App() {
 
@@ -36,6 +37,7 @@ function App() {
       <Route path="/room/:room_id" element={<RoomDetail />} />
       <Route path="/video-call/:room_id" element={<VideoCall />} />
       <Route path="/chat" element={<Chat />} />
+      <Route path="/schedule-rooms" element={<ScheduleRooms />} />
 
 
     </Routes>
