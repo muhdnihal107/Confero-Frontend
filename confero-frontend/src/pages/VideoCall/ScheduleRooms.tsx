@@ -84,8 +84,11 @@ const ScheduleRooms: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const isoTime = new Date(scheduledTime).toISOString();
-      await scheduleVideoCall(selectedRoomId, participants, isoTime);
+      console.log(scheduledTime,'schedule time');
+      const date = new Date(scheduledTime);
+      const utcDate = date.toISOString();
+
+      await scheduleVideoCall(selectedRoomId, participants, utcDate);
       toast.success('Video call scheduled successfully!');
       navigate('/room');
     } catch (err: any) {
