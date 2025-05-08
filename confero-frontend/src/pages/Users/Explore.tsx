@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { sendFriendRequest, fetchFriends, fetchStrangers,fetchFriendCount } from "../../api/auth";
+import { sendFriendRequest, fetchFriends, fetchStrangers } from "../../api/auth";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../Store/authStore";
 import Header from "../../components/Header";
@@ -27,11 +27,7 @@ const Explore: React.FC = () => {
     enabled: !!accessToken,
   });
 
-  const { data: friendCount, isLoading: isFriendCountLoading } = useQuery({
-    queryKey: ["friendCount"],
-    queryFn: fetchFriendCount,
-    enabled: !!accessToken,
-  });
+
 
   useEffect(() => {
     if (!accessToken) {
@@ -42,7 +38,7 @@ const Explore: React.FC = () => {
   const handleSendFriendRequest = async (userId: number) => {
     try {
       setSendingRequest(userId);
-      const response = await sendFriendRequest(userId);
+       await sendFriendRequest(userId);
       setRequestStatus((prev) => ({ ...prev, [userId]: "Friend request sent!" }));
       setTimeout(() => {
         setRequestStatus((prev) => ({ ...prev, [userId]: "" }));

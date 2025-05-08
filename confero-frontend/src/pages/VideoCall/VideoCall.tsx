@@ -37,6 +37,37 @@ interface EnlargedVideo {
   isScreenShare: boolean;
 }
 
+interface Notification {
+  id: number;
+  message: string;
+  type: 'connected' | 'disconnected';
+}
+
+
+const style = `
+  @keyframes slide-in-out {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    10% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    90% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+  }
+  .animate-slide-in-out {
+    animation: slide-in-out 3s ease-in-out forwards;
+  }
+`;
+
 const VideoCall: React.FC = () => {
   const { room_id } = useParams<{ room_id: string }>();
   const navigate = useNavigate();
@@ -59,6 +90,7 @@ const VideoCall: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<Map<string, SimplePeerInstance>>(new Map());
   const isMountedRef = useRef(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Fetch room details
   const { data: room, isLoading, error } = useQuery<Room, Error>({
@@ -66,6 +98,15 @@ const VideoCall: React.FC = () => {
     queryFn: () => fetchRoomDetails(room_id!),
     enabled: !!room_id,
   });
+
+  const addNotification = (message: string, type: 'connected' | 'disconnected') => {
+    const id = Date.now();
+    setNotifications((prev) => [...prev, { id, message, type }]);
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 3000);
+  }
 
   // Initialize media stream
   useEffect(() => {
@@ -104,6 +145,16 @@ const VideoCall: React.FC = () => {
     }
   }, [chatMessages]);
 
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = style;
+    document.head.appendChild(styleElement);
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
+
   // Initialize WebSocket and WebRTC
   useEffect(() => {
     if (!room_id || !userEmail || !stream) return;
@@ -119,6 +170,7 @@ const VideoCall: React.FC = () => {
 
           if (data.event === 'user-connected' && data.userEmail !== userEmail) {
             console.log(`[${userEmail}] User connected: ${data.userEmail}`);
+            addNotification(`${data.userEmail.split('@')[0]} joined the call`, 'connected');
             if (!peersRef.current.has(data.userEmail)) {
               createPeer(data.userEmail, ws, stream);
             } else {
@@ -218,6 +270,10 @@ const VideoCall: React.FC = () => {
       peersRef.current.clear();
     };
   }, [room_id, userEmail, stream]);
+
+
+  ;
+
 
   // Handle video click to enlarge or minimize
   const handleVideoClick = (userEmail: string, isScreenShare: boolean) => {
@@ -539,57 +595,514 @@ const VideoCall: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#030103a8] text-white flex flex-col">
-      {/* Header */}
-      <header className="p-4 bg-gray-800/80 shadow-lg">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">
-            {room.name} - Video Call
-          </h1>
-          <button
-            onClick={endCall}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-full font-semibold text-white transition-all duration-300 flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            End Call
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto p-4 gap-4">
-        {/* Video Section */}
-        <div className="flex-1 flex flex-col gap-4">
-          {connectionError && (
-            <div className="p-4 bg-red-900/50 rounded-lg text-red-300 text-center">
-              {connectionError}
-            </div>
+    <div className="min-h-screen bg-[#2f3136] text-white flex flex-col">
+  <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md">
+    {notifications.map((notification) => (
+      <div
+        key={notification.id}
+        className={`mb-2 p-3 rounded-lg shadow-md text-white text-sm font-medium animate-slide-in-out flex items-center gap-2 transition-all duration-300 ${
+          notification.type === 'connected'
+            ? 'bg-[#43b581]/80 backdrop-blur-sm'
+            : 'bg-[#f04747]/80 backdrop-blur-sm'
+        }`}
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          {notification.type === 'connected' ? (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M5 13l4 4L19 7"
+            />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
           )}
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Small Videos Column (when a video is enlarged) */}
-            {enlargedVideo && (
-              <div className="flex flex-col gap-2 w-full sm:w-32 md:w-40">
-                {/* Local Camera Video */}
-                <div className="relative bg-[#00000066] backdrop-blur-md rounded-xl p-2 shadow-md">
+        </svg>
+        <span>{notification.message}</span>
+      </div>
+    ))}
+  </div>
+  {/* Header */}
+  <header className="p-4 bg-[#36393f]/90 shadow-md">
+    <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#7289da] to-[#d83c3c] bg-clip-text text-transparent">
+        {room.name} - Voice & Video
+      </h1>
+      <button
+        onClick={endCall}
+        className="px-4 py-2 bg-[#f04747] hover:bg-[#d83c3c] rounded-md font-semibold text-white transition-all duration-200 flex items-center gap-2"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        End Call
+      </button>
+    </div>
+  </header>
+
+  {/* Main Content */}
+  <main className="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto p-4 gap-6">
+    {/* Video Section */}
+    <div className="flex-1 flex flex-col gap-6">
+      {connectionError && (
+        <div className="p-4 bg-[#f04747]/20 rounded-lg text-[#faa61a] text-center">
+          {connectionError}
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Small Videos Column (when a video is enlarged) */}
+        {enlargedVideo && (
+          <div className="flex flex-col gap-1 w-full sm:w-36 md:w-44">
+            {/* Local Camera Video */}
+            <div className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-2 shadow-sm">
+              <video
+                ref={(el) => {
+                  if (el && stream) {
+                    console.log(`[${userEmail}] Assigning local camera stream in small column`);
+                    el.srcObject = stream;
+                  }
+                }}
+                autoPlay
+                muted
+                className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+              />
+              <div className="absolute bottom-2 left-2 bg-[#2f3136]/60 backdrop-blur-sm px-1 py-0.5 rounded">
+                <span className="text-xs font-medium">{userEmail} (You)</span>
+              </div>
+              <button
+                onClick={() => handleVideoClick(userEmail, false)}
+                className="absolute bottom-2 right-2 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                title="Enlarge"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Local Screen Share (if active) */}
+            {isScreenSharing && (
+              <div className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-2 shadow-sm">
+                <video
+                  ref={(el) => {
+                    if (el && screenStream) {
+                      console.log(`[${userEmail}] Assigning local screen stream in small column`);
+                      el.srcObject = screenStream;
+                    }
+                  }}
+                  autoPlay
+                  muted
+                  className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+                />
+                <div className="absolute bottom-2 left-2 bg-[#2f3136]/60 backdrop-blur-sm px-1 py-0.5 rounded">
+                  <span className="text-xs font-medium">{userEmail} (Screen)</span>
+                </div>
+                <button
+                  onClick={() => handleVideoClick(userEmail, true)}
+                  className="absolute bottom-2 right-2 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                  title="Enlarge"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Remote Videos */}
+            {peers.map((peer) => (
+              <div
+                key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
+                className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-2 shadow-sm"
+              >
+                <video
+                  autoPlay
+                  ref={(el) => {
+                    if (el && peer.stream) {
+                      console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                      el.srcObject = peer.stream;
+                    }
+                  }}
+                  className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+                />
+                <div className="absolute bottom-2 left-2 bg-[#2f3136]/60 backdrop-blur-sm px-1 py-0.5 rounded">
+                  <span className="text-xs font-medium">
+                    {peer.userEmail} {peer.isScreenShare ? '(Screen)' : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
+                  className="absolute bottom-2 right-2 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                  title="Enlarge"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Main Video Area */}
+        <div className="flex-1">
+          {enlargedVideo ? (
+            // Enlarged Video
+            <div className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-3 shadow-md">
+              {enlargedVideo.userEmail === userEmail && !enlargedVideo.isScreenShare ? (
+                <>
                   <video
                     ref={(el) => {
                       if (el && stream) {
-                        console.log(`[${userEmail}] Assigning local camera stream in small column`);
+                        console.log(`[${userEmail}] Assigning local camera stream in enlarged mode`);
                         el.srcObject = stream;
                       }
                     }}
                     autoPlay
                     muted
-                    className="w-full rounded-lg aspect-video object-contain bg-black"
+                    className="w-full max-h-[80vh] rounded-md object-contain bg-[#2f3136]"
                   />
-                  <div className="absolute bottom-2 left-2 bg-[#00000066] backdrop-blur-md px-1 py-0.5 rounded-md">
-                    <span className="text-xs font-medium">{userEmail} (You - Camera)</span>
+                  <div className="absolute top-3 left-3 flex flex-col gap-2">
+                    <button
+                      onClick={toggleAudio}
+                      className={`p-2 rounded-md text-white transition-all duration-200 ${
+                        isMuted ? 'bg-[#f04747] hover:bg-[#d83c3c]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                      }`}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
+                          />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={toggleVideo}
+                      className={`p-2 rounded-md text-white transition-all duration-200 ${
+                        !isVideoOn ? 'bg-[#f04747] hover:bg-[#d83c3c]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                      }`}
+                      title={isVideoOn ? 'Video Off' : 'Video On'}
+                    >
+                      {isVideoOn ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={toggleScreenShare}
+                      className={`p-2 rounded-md text-white transition-all duration-200 ${
+                        isScreenSharing ? 'bg-[#43b581] hover:bg-[#3ca374]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                      }`}
+                      title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+                    >
+                      {isScreenSharing ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                    <span className="text-sm font-medium">{userEmail} (You)</span>
                   </div>
                   <button
                     onClick={() => handleVideoClick(userEmail, false)}
-                    className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
+                    className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                    title="Minimize"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                      />
+                    </svg>
+                  </button>
+                </>
+              ) : enlargedVideo.userEmail === userEmail && enlargedVideo.isScreenShare ? (
+                <>
+                  <video
+                    ref={(el) => {
+                      if (el && screenStream) {
+                        console.log(`[${userEmail}] Assigning local screen stream in enlarged mode`);
+                        el.srcObject = screenStream;
+                      }
+                    }}
+                    autoPlay
+                    muted
+                    className="w-full max-h-[80vh] rounded-md object-contain bg-[#2f3136]"
+                  />
+                  <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                    <span className="text-sm font-medium">{userEmail} (Screen)</span>
+                  </div>
+                  <button
+                    onClick={() => handleVideoClick(userEmail, true)}
+                    className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                    title="Minimize"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                      />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {peers
+                    .filter(
+                      (peer) =>
+                        peer.userEmail === enlargedVideo.userEmail &&
+                        (peer.isScreenShare || false) === enlargedVideo.isScreenShare
+                    )
+                    .map((peer) => (
+                      <div key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}>
+                        <video
+                          autoPlay
+                          ref={(el) => {
+                            if (el && peer.stream) {
+                              console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                              el.srcObject = peer.stream;
+                            }
+                          }}
+                          className="w-full max-h-[80vh] rounded-md object-contain bg-[#2f3136]"
+                        />
+                        <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                          <span className="text-sm font-medium">
+                            {peer.userEmail} {peer.isScreenShare ? '(Screen)' : ''}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleVideoClick(peer.userEmail, peer.isScreenShare || false)
+                          }
+                          className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                          title="Minimize"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+          ) : (
+            // Default Grid (no enlarged video)
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Local Camera Video */}
+              <div className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow duration-200">
+                <video
+                  ref={(el) => {
+                    if (el && stream) {
+                      console.log(`[${userEmail}] Assigning local camera stream in grid`);
+                      el.srcObject = stream;
+                    }
+                  }}
+                  autoPlay
+                  muted
+                  className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+                />
+                <div className="absolute top-3 left-3 flex flex-col gap-2">
+                  <button
+                    onClick={toggleAudio}
+                    className={`p-2 rounded-md text-white transition-all duration-200 ${
+                      isMuted ? 'bg-[#f04747] hover:bg-[#d83c3c]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                    }`}
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
+                        />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={toggleVideo}
+                    className={`p-2 rounded-md text-white transition-all duration-200 ${
+                      !isVideoOn ? 'bg-[#f04747] hover:bg-[#d83c3c]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                    }`}
+                    title={isVideoOn ? 'Video Off' : 'Video On'}
+                  >
+                    {isVideoOn ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={toggleScreenShare}
+                    className={`p-2 rounded-md text-white transition-all duration-200 ${
+                      isScreenSharing ? 'bg-[#43b581] hover:bg-[#3ca374]' : 'bg-[#7289da] hover:bg-[#677bc4]'
+                    }`}
+                    title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
+                  >
+                    {isScreenSharing ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                  <span className="text-sm font-medium">{userEmail} (You)</span>
+                </div>
+                <button
+                  onClick={() => handleVideoClick(userEmail, false)}
+                  className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                  title="Enlarge"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Local Screen Share (if active) */}
+              {isScreenSharing && (
+                <div className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow duration-200">
+                  <video
+                    ref={(el) => {
+                      if (el && screenStream) {
+                        console.log(`[${userEmail}] Assigning local screen stream in grid`);
+                        el.srcObject = screenStream;
+                      }
+                    }}
+                    autoPlay
+                    muted
+                    className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+                  />
+                  <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                    <span className="text-sm font-medium">{userEmail} (Screen)</span>
+                  </div>
+                  <button
+                    onClick={() => handleVideoClick(userEmail, true)}
+                    className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
                     title="Enlarge"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -602,529 +1115,115 @@ const VideoCall: React.FC = () => {
                     </svg>
                   </button>
                 </div>
-
-                {/* Local Screen Share (if active) */}
-                {isScreenSharing && (
-                  <div className="relative bg-gray-800/80 rounded-xl p-2 shadow-md">
-                    <video
-                      ref={(el) => {
-                        if (el && screenStream) {
-                          console.log(`[${userEmail}] Assigning local screen stream in small column`);
-                          el.srcObject = screenStream;
-                        }
-                      }}
-                      autoPlay
-                      muted
-                      className="w-full rounded-lg aspect-video object-contain bg-black"
-                    />
-                    <div className="absolute bottom-2 left-2 bg-gray-900/70 px-1 py-0.5 rounded-md">
-                      <span className="text-xs font-medium">{userEmail} (You - Screen)</span>
-                    </div>
-                    <button
-                      onClick={() => handleVideoClick(userEmail, true)}
-                      className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                      title="Enlarge"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-
-                {/* Remote Videos */}
-                {peers.map((peer) => (
-                  <div
-                    key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
-                    className="relative bg-gray-800/80 rounded-xl p-2 shadow-md"
-                  >
-                    <video
-                      autoPlay
-                      ref={(el) => {
-                        if (el && peer.stream) {
-                          console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
-                          el.srcObject = peer.stream;
-                        }
-                      }}
-                      className="w-full rounded-lg aspect-video object-contain bg-black"
-                    />
-                    <div className="absolute bottom-2 left-2 bg-gray-900/70 px-1 py-0.5 rounded-md">
-                      <span className="text-xs font-medium">
-                        {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
-                      className="absolute bottom-2 right-2 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                      title="Enlarge"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Main Video Area */}
-            <div className="flex-1">
-              {enlargedVideo ? (
-                // Enlarged Video
-                <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg">
-                  {enlargedVideo.userEmail === userEmail && !enlargedVideo.isScreenShare ? (
-                    <>
-                      <video
-                        ref={(el) => {
-                          if (el && stream) {
-                            console.log(`[${userEmail}] Assigning local camera stream in enlarged mode`);
-                            el.srcObject = stream;
-                          }
-                        }}
-                        autoPlay
-                        muted
-                        className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
-                      />
-                      <div className="absolute top-3 left-3 flex flex-col gap-2">
-                        <button
-                          onClick={toggleAudio}
-                          className={`p-2 rounded-full text-white transition-all duration-300 ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                            }`}
-                          title={isMuted ? 'Unmute' : 'Mute'}
-                        >
-                          {isMuted ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
-                              />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          onClick={toggleVideo}
-                          className={`p-2 rounded-full text-white transition-all duration-300 ${!isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                            }`}
-                          title={isVideoOn ? 'Video Off' : 'Video On'}
-                        >
-                          {isVideoOn ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                              />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          onClick={toggleScreenShare}
-                          className={`p-2 rounded-full text-white transition-all duration-300 ${isScreenSharing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                            }`}
-                          title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
-                        >
-                          {isScreenSharing ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                        <span className="text-sm font-medium">{userEmail} (You - Camera)</span>
-                      </div>
-                      <button
-                        onClick={() => handleVideoClick(userEmail, false)}
-                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                        title="Minimize"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
-                          />
-                        </svg>
-                      </button>
-                    </>
-                  ) : enlargedVideo.userEmail === userEmail && enlargedVideo.isScreenShare ? (
-                    <>
-                      <video
-                        ref={(el) => {
-                          if (el && screenStream) {
-                            console.log(`[${userEmail}] Assigning local screen stream in enlarged mode`);
-                            el.srcObject = screenStream;
-                          }
-                        }}
-                        autoPlay
-                        muted
-                        className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
-                      />
-                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                        <span className="text-sm font-medium">{userEmail} (You - Screen)</span>
-                      </div>
-                      <button
-                        onClick={() => handleVideoClick(userEmail, true)}
-                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                        title="Minimize"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
-                          />
-                        </svg>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {peers
-                        .filter(
-                          (peer) =>
-                            peer.userEmail === enlargedVideo.userEmail &&
-                            (peer.isScreenShare || false) === enlargedVideo.isScreenShare
-                        )
-                        .map((peer) => (
-                          <div key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}>
-                            <video
-                              autoPlay
-                              ref={(el) => {
-                                if (el && peer.stream) {
-                                  console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
-                                  el.srcObject = peer.stream;
-                                }
-                              }}
-                              className="w-full max-h-[70vh] rounded-lg object-contain bg-black"
-                            />
-                            <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                              <span className="text-sm font-medium">
-                                {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() =>
-                                handleVideoClick(peer.userEmail, peer.isScreenShare || false)
-                              }
-                              className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                              title="Minimize"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M20 12H4m8 8l-8-8m8-8l-8 8m16 0l-8-8m8 8l-8 8"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                    </>
-                  )}
-                </div>
-              ) : (
-                // Default Grid (no enlarged video)
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Local Camera Video */}
-                  <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <video
-                      ref={(el) => {
-                        if (el && stream) {
-                          console.log(`[${userEmail}] Assigning local camera stream in grid`);
-                          el.srcObject = stream;
-                        }
-                      }}
-                      autoPlay
-                      muted
-                      className="w-full rounded-lg aspect-video object-contain bg-black"
-                    />
-                    <div className="absolute top-3 left-3 flex flex-col gap-2">
-                      <button
-                        onClick={toggleAudio}
-                        className={`p-2 rounded-full text-white transition-all duration-300 ${isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                          }`}
-                        title={isMuted ? 'Unmute' : 'Mute'}
-                      >
-                        {isMuted ? (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15zM17 9l-6 6m0-6l6 6"
-                            />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={toggleVideo}
-                        className={`p-2 rounded-full text-white transition-all duration-300 ${!isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                          }`}
-                        title={isVideoOn ? 'Video Off' : 'Video On'}
-                      >
-                        {isVideoOn ? (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M6 18L18 6M6 6l12 12m-3-10H5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={toggleScreenShare}
-                        className={`p-2 rounded-full text-white transition-all duration-300 ${isScreenSharing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                          }`}
-                        title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
-                      >
-                        {isScreenSharing ? (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 17V7m0 10h6m-6-10h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                      <span className="text-sm font-medium">{userEmail} (You - Camera)</span>
-                    </div>
-                    <button
-                      onClick={() => handleVideoClick(userEmail, false)}
-                      className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                      title="Enlarge"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Local Screen Share (if active) */}
-                  {isScreenSharing && (
-                    <div className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                      <video
-                        ref={(el) => {
-                          if (el && screenStream) {
-                            console.log(`[${userEmail}] Assigning local screen stream in grid`);
-                            el.srcObject = screenStream;
-                          }
-                        }}
-                        autoPlay
-                        muted
-                        className="w-full rounded-lg aspect-video object-contain bg-black"
-                      />
-                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                        <span className="text-sm font-medium">{userEmail} (You - Screen)</span>
-                      </div>
-                      <button
-                        onClick={() => handleVideoClick(userEmail, true)}
-                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                        title="Enlarge"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Remote Videos */}
-                  {peers.map((peer) => (
-                    <div
-                      key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
-                      className="relative bg-gray-800/80 rounded-xl p-3 shadow-lg hover:shadow-xl transition-shadow duration-300"
-                    >
-                      <video
-                        autoPlay
-                        ref={(el) => {
-                          if (el && peer.stream) {
-                            console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
-                            el.srcObject = peer.stream;
-                          }
-                        }}
-                        className="w-full rounded-lg aspect-video object-contain bg-black"
-                      />
-                      <div className="absolute bottom-3 left-3 bg-gray-900/70 px-2 py-1 rounded-md">
-                        <span className="text-sm font-medium">
-                          {peer.userEmail} {peer.isScreenShare ? '(Screen)' : '(Camera)'}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
-                        className="absolute bottom-3 right-3 bg-gray-900/70 p-1 rounded-full hover:bg-gray-800 transition-all"
-                        title="Enlarge"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
               )}
-            </div>
-          </div>
-        </div>
 
-        {/* Chat and Participants Panel */}
-        <div className="w-full md:w-80 flex flex-col gap-4">
-          {/* Chat Panel */}
-          <div className="bg-gray-800/80 rounded-xl shadow-lg p-4 flex-1 flex flex-col">
-            <h2 className="text-lg font-semibold text-indigo-300 mb-3">Chat</h2>
-            <div
-              ref={chatContainerRef}
-              className="flex-1 overflow-y-auto p-3 bg-gray-900/50 rounded-lg max-h-[400px]"
-            >
-              {chatMessages.map((msg, index) => (
+              {/* Remote Videos */}
+              {peers.map((peer) => (
                 <div
-                  key={index}
-                  className={`mb-3 p-2 rounded-lg ${msg.sender === userEmail
-                      ? 'bg-indigo-600/50 text-right ml-auto'
-                      : 'bg-gray-700/50 text-left mr-auto'
-                    } max-w-[80%] animate-fade-in`}
+                  key={peer.userEmail + (peer.isScreenShare ? '-screen' : '')}
+                  className="relative bg-[#36393f]/80 backdrop-blur-sm rounded-lg p-3 shadow-md hover:shadow-lg transition-shadow duration-200"
                 >
-                  <p className="text-sm font-medium">{msg.sender.split("@")[0]}</p>
-                  <p className="text-sm">{msg.content}</p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </p>
+                  <video
+                    autoPlay
+                    ref={(el) => {
+                      if (el && peer.stream) {
+                        console.log(`[${userEmail}] Assigning stream for ${peer.userEmail}`);
+                        el.srcObject = peer.stream;
+                      }
+                    }}
+                    className="w-full rounded-md aspect-video object-contain bg-[#2f3136]"
+                  />
+                  <div className="absolute bottom-3 left-3 bg-[#2f3136]/60 px-2 py-1 rounded">
+                    <span className="text-sm font-medium">
+                      {peer.userEmail} {peer.isScreenShare ? '(Screen)' : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleVideoClick(peer.userEmail, peer.isScreenShare || false)}
+                    className="absolute bottom-3 right-3 bg-[#2f3136]/60 p-1 rounded-md hover:bg-[#40444b]/80 transition-all"
+                    title="Enlarge"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1v4m0 0h-4m4 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 0h-4"
+                      />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={handleChatKeyPress}
-                placeholder="Type a message..."
-                className="flex-1 p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={sendChatMessage}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold text-white transition-all duration-300"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-
-          {/* Participants Panel */}
-          <div className="bg-gray-800/80 rounded-xl shadow-lg p-4">
-            <h2 className="text-lg font-semibold text-indigo-300 mb-3">Participants</h2>
-            <ul className="space-y-2 max-h-40 overflow-y-auto">
-              {room.participants.map((participant) => (
-                <li
-                  key={participant}
-                  className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-700/70 transition-all duration-200 text-sm flex items-center gap-2"
-                >
-                  <span>{participant}</span>
-                  {screenShareStates.get(participant) && (
-                    <span className="text-xs text-green-400">(Sharing Screen)</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
+          )}
         </div>
-      </main>
+      </div>
     </div>
+
+    {/* Chat and Participants Panel */}
+    <div className="w-full md:w-80 flex flex-col gap-6">
+      {/* Chat Panel */}
+      <div className="bg-[#36393f]/80 backdrop-blur-sm rounded-lg shadow-md p-4 flex-1 flex flex-col">
+        <h2 className="text-lg font-semibold text-[#7289da] mb-3">Chat</h2>
+        <div
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-3 bg-[#2f3136]/50 rounded-md max-h-[400px]"
+        >
+          {chatMessages.map((msg, index) => (
+            <div
+              key={index}
+              className={`mb-3 p-2 rounded-md ${
+                msg.sender === userEmail
+                  ? 'bg-[#7289da]/20 text-right ml-auto'
+                  : 'bg-[#40444b]/20 text-left mr-auto'
+              } max-w-[80%] animate-fade-in`}
+            >
+              <p className="text-sm font-medium">{msg.sender.split("@")[0]}</p>
+              <p className="text-sm">{msg.content}</p>
+              <p className="text-xs text-[#72767d]">
+                {new Date(msg.timestamp).toLocaleTimeString()}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyPress={handleChatKeyPress}
+            placeholder="Message #channel"
+            className="flex-1 p-2 rounded-md bg-[#40444b] text-white placeholder-[#72767d] focus:outline-none focus:ring-2 focus:ring-[#7289da]"
+          />
+          <button
+            onClick={sendChatMessage}
+            className="px-4 py-2 bg-[#7289da] hover:bg-[#677bc4] rounded-md font-semibold text-white transition-all duration-200"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+
+      {/* Participants Panel */}
+      <div className="bg-[#36393f]/80 backdrop-blur-sm rounded-lg shadow-md p-4">
+        <h2 className="text-lg font-semibold text-[#7289da] mb-3">Members</h2>
+        <ul className="space-y-2 max-h-40 overflow-y-auto">
+          {room.participants.map((participant) => (
+            <li
+              key={participant}
+              className="p-2 rounded-md bg-[#2f3136]/50 hover:bg-[#40444b]/50 transition-all duration-200 text-sm flex items-center gap-2"
+            >
+              <span>{participant}</span>
+              {screenShareStates.get(participant) && (
+                <span className="text-xs text-[#43b581]">(Sharing Screen)</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </main>
+</div>
   );
 };
 

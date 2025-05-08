@@ -79,9 +79,9 @@ const ProfilePage: React.FC = () => {
     },
   });
 
-  const handleImageClick = () => {
-    setIsEditing(true);
-  };
+  // const handleImageClick = () => {
+  //   setIsEditing(true);
+  // };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
